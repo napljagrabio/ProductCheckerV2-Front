@@ -1,0 +1,902 @@
+﻿<Window x:Class="ProductCheckerV2.ViewRequestsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Request History - Product Checker V2" 
+        Height="850" 
+        Width="1300"
+        MinHeight="700"
+        MinWidth="1100"
+        WindowStartupLocation="CenterOwner"
+        Background="#F5F7FA"
+        Closing="Window_Closing">
+
+    <Window.Resources>
+        <!-- Reuse colors from MainWindow -->
+        <SolidColorBrush x:Key="PrimaryBrush" Color="#4361ee"/>
+        <SolidColorBrush x:Key="SecondaryBrush" Color="#3a0ca3"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#4cc9f0"/>
+        <SolidColorBrush x:Key="BackgroundBrush" Color="#F5F7FA"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#2D3748"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#718096"/>
+        <SolidColorBrush x:Key="BorderBrush" Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="HoverBrush" Color="#F7FAFC"/>
+
+        <!-- Selection Highlight -->
+        <SolidColorBrush x:Key="SelectedBrush" Color="#E3F2FD"/>
+        <SolidColorBrush x:Key="SelectedBorderBrush" Color="#2196F3"/>
+
+        <!-- Status Colors -->
+        <SolidColorBrush x:Key="PendingBrush" Color="#FFB74D"/>
+        <SolidColorBrush x:Key="ProcessingBrush" Color="#42A5F5"/>
+        <SolidColorBrush x:Key="SuccessStatusBrush" Color="#66BB6A"/>
+        <SolidColorBrush x:Key="FailedBrush" Color="#EF5350"/>
+        <SolidColorBrush x:Key="CompletedWithIssuesBrush" Color="#FFA726"/>
+
+        <!-- Modal Colors -->
+        <SolidColorBrush x:Key="ModalOverlayBrush" Color="#99000000"/>
+        <SolidColorBrush x:Key="ModalBackgroundBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="ModalHeaderBackgroundBrush" Color="#4361ee"/>
+        <SolidColorBrush x:Key="SuccessModalHeaderBrush" Color="#66BB6A"/>
+        <SolidColorBrush x:Key="WarningModalHeaderBrush" Color="#FFB74D"/>
+
+        <!-- Auto Refresh Animation -->
+        <Storyboard x:Key="AutoRefreshAnimation" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                             From="0.4" To="1.0"
+                             Duration="0:0:1"
+                             AutoReverse="True"
+                             EasingFunction="{x:Null}"/>
+        </Storyboard>
+
+        <!-- Modern Card Style -->
+        <Style x:Key="ModernCard" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+            <Setter Property="CornerRadius" Value="12"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="20"/>
+            <Setter Property="Margin" Value="0,0,0,20"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="15" 
+                                    ShadowDepth="0" 
+                                    Opacity="0.1" 
+                                    Color="#000000"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Button Style -->
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Padding" Value="16,10"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="#4361ee"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="8"
+                                BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"
+                                            Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern ListBox Style for Requests -->
+        <Style x:Key="ModernListBox" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="BorderBrush" Value="Transparent"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="Margin" Value="0,0,0,8"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListBoxItem">
+                                    <Border x:Name="border"
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="8"
+                                            Padding="15">
+                                        <ContentPresenter/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="border" Property="Background" Value="{StaticResource HoverBrush}"/>
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="border" Property="Background" Value="{StaticResource SelectedBrush}"/>
+                                            <Setter TargetName="border" Property="BorderBrush" Value="{StaticResource SelectedBorderBrush}"/>
+                                            <Setter TargetName="border" Property="BorderThickness" Value="2"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern DataGrid Style for Listings -->
+        <Style x:Key="ModernDataGrid" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="False"/>
+            <Setter Property="IsReadOnly" Value="True"/>
+            <Setter Property="CanUserAddRows" Value="False"/>
+            <Setter Property="CanUserDeleteRows" Value="False"/>
+            <Setter Property="SelectionMode" Value="Single"/>
+            <Setter Property="SelectionUnit" Value="FullRow"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
+            <Setter Property="RowHeaderWidth" Value="0"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="RowBackground" Value="Transparent"/>
+            <Setter Property="AlternatingRowBackground" Value="#F7FAFC"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+            <Setter Property="CellStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridCell">
+                        <Setter Property="Padding" Value="12,8"/>
+                        <Setter Property="BorderThickness" Value="0"/>
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#4361ee"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Search TextBox Style -->
+        <Style x:Key="SearchTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Padding" Value="15,12"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="#2D3748"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <Grid>
+                                <ScrollViewer x:Name="PART_ContentHost"
+                                              VerticalAlignment="Center"
+                                              Margin="15,0,40,0"/>
+                                <TextBlock x:Name="Watermark"
+                                           Text="Search requests..."
+                                           Foreground="#A0AEC0"
+                                           VerticalAlignment="Center"
+                                           Margin="15,0"
+                                           IsHitTestVisible="False"
+                                           Visibility="Collapsed"/>
+                                <Border Width="40"
+                                        HorizontalAlignment="Right"
+                                        Background="Transparent">
+                                    <TextBlock Text="🔍"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Center"
+                                               Foreground="#718096"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter TargetName="Watermark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Status Badge Template -->
+        <ControlTemplate x:Key="StatusBadgeTemplate" TargetType="ContentControl">
+            <Border Background="{TemplateBinding Background}"
+                    CornerRadius="12"
+                    Padding="8,4"
+                    BorderThickness="1"
+                    BorderBrush="{TemplateBinding BorderBrush}">
+                <TextBlock Text="{TemplateBinding Content}"
+                           Foreground="White"
+                           FontSize="5"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"/>
+            </Border>
+        </ControlTemplate>
+
+        <!-- Modal Button Style -->
+        <Style x:Key="ModalButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="MinWidth" Value="80"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <!-- Success Modal Button -->
+        <Style x:Key="SuccessModalButton" TargetType="Button" BasedOn="{StaticResource ModalButton}">
+            <Setter Property="Background" Value="#66BB6A"/>
+        </Style>
+
+        <!-- Warning Modal Button -->
+        <Style x:Key="WarningModalButton" TargetType="Button" BasedOn="{StaticResource ModalButton}">
+            <Setter Property="Background" Value="#F59E0B"/>
+        </Style>
+
+        <!-- Info Modal Button -->
+        <Style x:Key="InfoModalButton" TargetType="Button" BasedOn="{StaticResource ModalButton}">
+            <Setter Property="Background" Value="#4361ee"/>
+        </Style>
+
+        <!-- Secondary Modal Button -->
+        <Style x:Key="SecondaryModalButton" TargetType="Button" BasedOn="{StaticResource ModalButton}">
+            <Setter Property="Background" Value="#718096"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <!-- Modal Overlay - Hidden by default -->
+        <Border x:Name="ModalOverlay"
+                Background="{StaticResource ModalOverlayBrush}"
+                Visibility="Collapsed"
+                Panel.ZIndex="1000">
+            <Border.Triggers>
+                <EventTrigger RoutedEvent="Loaded">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                             From="0" To="1"
+                                             Duration="0:0:0.2"/>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Border.Triggers>
+        </Border>
+
+        <!-- Rescan Modal -->
+        <Border x:Name="RescanModal"
+                Width="400"
+                Height="400"
+                Background="{StaticResource ModalBackgroundBrush}"
+                CornerRadius="16"
+                Panel.ZIndex="1001"
+                Visibility="Collapsed"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="30" 
+                                ShadowDepth="0" 
+                                Opacity="0.2" 
+                                Color="#000000"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="60"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="90"/>
+                </Grid.RowDefinitions>
+
+                <!-- Modal Header -->
+                <Border Grid.Row="0"
+                        Background="{StaticResource WarningModalHeaderBrush}"
+                        CornerRadius="16,16,0,0">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="🔄"
+                                   FontSize="28"
+                                   Margin="0,0,15,0"/>
+                        <TextBlock Text="Rescan Options"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Modal Content -->
+                <StackPanel Grid.Row="1"
+                            Margin="30,0,30,0"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="Choose your rescan option:"
+                               FontSize="16"
+                               FontWeight="Medium"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,0,20"/>
+
+                    <!-- Rescan All Option -->
+                    <Border x:Name="RescanAllOption"
+                            Background="#F7FAFC"
+                            CornerRadius="10"
+                            Padding="15"
+                            Margin="0,0,0,10"
+                            BorderThickness="2"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="RescanAllOption_MouseLeftButtonDown">
+                        <StackPanel>
+                            <TextBlock Text="📋 Rescan All Listings"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       Margin="0,0,0,5"/>
+                            <TextBlock Text="Rescan all listings from the selected request"
+                                       FontSize="13"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Rescan Errors Only Option -->
+                    <Border x:Name="RescanErrorsOption"
+                            Background="#F7FAFC"
+                            CornerRadius="10"
+                            Padding="15"
+                            BorderThickness="2"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="RescanErrorsOption_MouseLeftButtonDown">
+                        <StackPanel>
+                            <TextBlock Text="⚠️ Rescan Only Error Listings"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimaryBrush}"
+                                       Margin="0,0,0,5"/>
+                            <TextBlock Text="Only rescan listings that had errors in the previous scan"
+                                       FontSize="13"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Modal Footer -->
+                <Border Grid.Row="2"
+                        Background="#F7FAFC"
+                        CornerRadius="0,0,16,16"
+                        Padding="17">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right">
+                        <Button x:Name="CancelRescanButton"
+                                Content="Cancel"
+                                Style="{StaticResource SecondaryModalButton}"
+                                Click="CancelRescanButton_Click"/>
+                        <Button x:Name="ConfirmRescanButton"
+                                Content="Confirm Rescan"
+                                Style="{StaticResource WarningModalButton}"
+                                Click="ConfirmRescanButton_Click"
+                                Margin="10,0,0,0"
+                                IsEnabled="False"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Export Modal -->
+        <Border x:Name="ExportModal"
+                Width="500"
+                Height="360"
+                Background="{StaticResource ModalBackgroundBrush}"
+                CornerRadius="16"
+                Panel.ZIndex="1001"
+                Visibility="Collapsed"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="30" 
+                                ShadowDepth="0" 
+                                Opacity="0.2" 
+                                Color="#000000"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="60"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="80"/>
+                </Grid.RowDefinitions>
+
+                <!-- Modal Header -->
+                <Border Grid.Row="0"
+                        Background="{StaticResource SuccessModalHeaderBrush}"
+                        CornerRadius="16,16,0,0">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="📊"
+                                   FontSize="28"
+                                   Margin="0,0,15,0"/>
+                        <TextBlock Text="Export to Excel"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Modal Content -->
+                <StackPanel Grid.Row="1"
+                            Margin="30,0,30,-20"
+                            VerticalAlignment="Center">
+                    <!-- Export Details -->
+                    <Border Background="#F0F9FF"
+                            CornerRadius="10"
+                            Padding="15"
+                            Margin="0,0,0,20">
+                        <StackPanel>
+                            <TextBlock x:Name="ExportFileName"
+                                       Text=""
+                                       FontSize="16"
+                                       FontWeight="SemiBold"
+                                       Foreground="#4361ee"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,0,0,5"/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Listings: "
+                                           FontSize="13"
+                                           Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock x:Name="ExportListingsCount"
+                                           Text="0"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="#4361ee"/>
+                                <TextBlock Text=" | Status: "
+                                           FontSize="13"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Margin="10,0,0,0"/>
+                                <TextBlock x:Name="ExportStatus"
+                                           Text="SUCCESS"
+                                           FontSize="13"
+                                           FontWeight="SemiBold"
+                                           Foreground="#66BB6A"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Save Options -->
+                    <TextBlock Text="Choose file location:"
+                               FontSize="14"
+                               FontWeight="Medium"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,0,10"/>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBox x:Name="ExportFilePath"
+                                 Text=""
+                                 FontSize="13"
+                                 Padding="12"
+                                 BorderBrush="{StaticResource BorderBrush}"
+                                 BorderThickness="1"
+                                 VerticalContentAlignment="Center"
+                                 IsReadOnly="True"
+                                 Background="#F7FAFC"
+                                 Foreground="{StaticResource TextPrimaryBrush}"/>
+
+                        <Button Grid.Column="1"
+                                Content="Browse"
+                                Style="{StaticResource InfoModalButton}"
+                                Margin="10,0,0,0"
+                                Click="BrowseExportPathButton_Click"/>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal"
+                                Margin="0,15,0,0">
+                        <TextBlock Text="💡"
+                                   FontSize="14"
+                                   Foreground="#F59E0B"
+                                   Margin="0,0,5,0"/>
+                        <TextBlock Text="File will be saved with timestamp automatically"
+                                   FontSize="12"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Modal Footer -->
+                <Border Grid.Row="2"
+                        Background="#F7FAFC"
+                        CornerRadius="0,0,16,16"
+                        Padding="20">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right">
+                        <Button x:Name="CancelExportButton"
+                                Content="Cancel"
+                                Style="{StaticResource SecondaryModalButton}"
+                                Margin="10,0,0,0"
+                                Click="CancelExportButton_Click"/>
+                        <Button x:Name="ConfirmExportButton"
+                                Content="Export Now"
+                                Style="{StaticResource SuccessModalButton}"
+                                Click="ConfirmExportButton_Click"
+                                Margin="10,0,0,0"
+                                IsEnabled="False"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Main Content -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Header -->
+            <Border Grid.Row="0"
+                    Grid.ColumnSpan="2"
+                    Background="{StaticResource CardBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="16,10"
+                    Margin="0,0,0,10">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image x:Name="LogoImage" Height="36" Width="36" Margin="0,0,10,0"/>
+                    <TextBlock Text="PRODUCT CHECKER"
+                               FontSize="22"
+                               FontWeight="SemiBold"
+                               Foreground="#2D3748"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Left Panel: REQUESTS (Now on the left side) -->
+            <Border Grid.Row="1"
+                    Grid.Column="0"
+                    Style="{StaticResource ModernCard}"
+                    Margin="0,0,20,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Requests Header with Search -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,15">
+                        <!-- Title with Auto-Refresh Indicator -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <TextBlock Text="📊 All Requests" 
+                                     FontSize="18" 
+                                     FontWeight="SemiBold" 
+                                     Foreground="#2D3748"/>
+                            <TextBlock x:Name="RequestCountText" 
+                                     Text="(0 requests)"
+                                     FontSize="16"
+                                     Foreground="#718096"
+                                     VerticalAlignment="Center"
+                                     Margin="10,0,0,0"
+                                     ToolTipService.ShowDuration="10000"/>
+
+                            <!-- Auto-Refresh Indicator -->
+                            <Border x:Name="AutoRefreshIndicator"
+                                    Width="16"
+                                    Height="16"
+                                    CornerRadius="8"
+                                    Background="#4361ee"
+                                    Margin="10,0,0,0"
+                                    VerticalAlignment="Center"
+                                    ToolTip="Auto-refresh is active (every 5 seconds)">
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="0.4" To="1.0"
+                                                                 Duration="0:0:1"
+                                                                 AutoReverse="True"
+                                                                 RepeatBehavior="Forever"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Search Bar -->
+                        <TextBox x:Name="SearchTextBox"
+                                 Style="{StaticResource SearchTextBoxStyle}"
+                                 TextChanged="SearchTextBox_TextChanged"/>
+                    </StackPanel>
+
+                    <!-- Requests ListBox -->
+                    <ListBox x:Name="RequestsListBox"
+                            Grid.Row="1"
+                            Style="{StaticResource ModernListBox}"
+                            SelectionChanged="RequestsListBox_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Request Details -->
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="{Binding FileName}"
+                                                   FontSize="16"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#2D3748"
+                                                   TextTrimming="CharacterEllipsis"/>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                            <TextBlock Text="ID:"
+                                                       FontSize="14"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#718096"
+                                                       Margin="0,0,5,0"/>
+                                            <TextBlock Text="{Binding Id}"
+                                                       FontSize="14"
+                                                       FontWeight="Medium"
+                                                       Foreground="#4361ee"
+                                                       Margin="0,0,15,0"/>
+
+                                            <TextBlock Text="•"
+                                                       FontSize="14"
+                                                       Foreground="#718096"
+                                                       Margin="0,0,10,0"/>
+
+                                            <TextBlock Text="{Binding User}"
+                                                       FontSize="14"
+                                                       Foreground="#718096"
+                                                       Margin="0,0,15,0"/>
+                                        </StackPanel>
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                            <TextBlock Text="{Binding CreatedAt, StringFormat='yyyy-MM-dd HH:mm'}"
+                                                       FontSize="12"
+                                                       Foreground="#718096"/>
+                                            <TextBlock Text=" • "
+                                                       FontSize="12"
+                                                       Foreground="#718096"/>
+                                            <TextBlock Text="{Binding ListingsCount}"
+                                                       FontSize="12"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#4361ee"/>
+                                            <TextBlock Text=" listings"
+                                                       FontSize="12"
+                                                       Foreground="#718096"/>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- Status Badge -->
+                                    <ContentControl Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    Template="{StaticResource StatusBadgeTemplate}"
+                                                    Content="{Binding Status}"
+                                                    Background="{Binding StatusBrush}"
+                                                    ToolTip="{Binding Status}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
+            </Border>
+
+            <!-- Right Panel: LISTINGS (Now on the right side) -->
+            <Border Grid.Row="1"
+                    Grid.Column="1"
+                    Style="{StaticResource ModernCard}"
+                    Margin="0,0,0,0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Selected Request Details -->
+                    <Border Grid.Row="0" 
+                            Background="#F7FAFC"
+                            CornerRadius="8"
+                            Padding="15"
+                            Margin="0,0,0,15">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Request Icon -->
+                            <Border Grid.Column="0"
+                                    Width="40"
+                                    Height="40"
+                                    Background="#4361ee"
+                                    CornerRadius="8"
+                                    Margin="0,0,15,0">
+                                <TextBlock Text="📋"
+                                         FontSize="18"
+                                         Foreground="White"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"/>
+                            </Border>
+
+                            <!-- Request Info -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock x:Name="SelectedRequestTitle"
+                                         Text="No request selected"
+                                         FontSize="16"
+                                         FontWeight="SemiBold"
+                                         Foreground="#2D3748"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                    <TextBlock x:Name="SelectedRequestInfo"
+                                             Text="Select a request to view listings"
+                                             FontSize="14"
+                                             Foreground="#718096"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- Action Buttons -->
+                            <StackPanel Grid.Column="2"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Button x:Name="RescanButton"
+                                        Content="🔄 Rescan"
+                                        Style="{StaticResource ModernButton}"
+                                        Click="RescanButton_Click"
+                                        Background="#F59E0B"
+                                        VerticalAlignment="Center"
+                                        IsEnabled="False"
+                                        Visibility="Collapsed"/>
+                                <Button x:Name="ExportButton" 
+                                        Content="📥 Export to Excel"
+                                        Style="{StaticResource ModernButton}"
+                                        Click="ExportButton_Click"
+                                        Background="#66BB6A"
+                                        VerticalAlignment="Center"
+                                        IsEnabled="False"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Listings DataGrid -->
+                    <DataGrid x:Name="ListingsDataGrid"
+              Grid.Row="1"
+              Style="{StaticResource ModernDataGrid}"
+              AutoGenerateColumns="False"
+              HorizontalScrollBarVisibility="Auto"
+              ColumnWidth="*">
+
+                        <DataGrid.Columns>
+
+                            <!-- ✅ AUTO-FIT TO DATA -->
+                            <DataGridTextColumn Header="Listing ID"
+                                Binding="{Binding ListingId}"
+                                Width="SizeToCells"
+                                MinWidth="80"/>
+
+                            <DataGridTextColumn Header="Case Number"
+                                Binding="{Binding CaseNumber}"
+                                Width="SizeToCells"
+                                MinWidth="90"/>
+
+                            <DataGridTextColumn Header="Platform"
+                                Binding="{Binding Platform}"
+                                Width="SizeToCells"
+                                MinWidth="80">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                        <Setter Property="Foreground" Value="#4361ee"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <!-- 🔹 FLEX / FILL REMAINING SPACE -->
+                            <DataGridTextColumn Header="Product URL"
+                                Binding="{Binding Url}"
+                                Width="3*"
+                                MinWidth="300">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding Url}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Header="URL Status"
+                                Binding="{Binding UrlStatus}"
+                                Width="SizeToCells"
+                                MinWidth="100">
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Header="Checked Date"
+                                Binding="{Binding CheckedDate}"
+                                Width="160"
+                                MinWidth="120"/>
+
+                            <DataGridTextColumn Header="Error, If any"
+                                Binding="{Binding ErrorDetail}"
+                                Width="2*"
+                                MinWidth="200">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding ErrorDetail}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <DataGridTextColumn Header="Notes"
+                                Binding="{Binding Notes}"
+                                Width="2*"
+                                MinWidth="200">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                        <Setter Property="ToolTip" Value="{Binding Notes}"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Status Bar -->
+                    <StackPanel Grid.Row="2" 
+                              Orientation="Horizontal"
+                              Margin="0,15,0,0">
+                        <TextBlock x:Name="ListingCountText" 
+                                 Text="0 listings"
+                                 FontSize="14"
+                                 Foreground="#718096"/>
+                        <TextBlock Text=" • "
+                                 FontSize="14"
+                                 Foreground="#718096"
+                                 Margin="5,0,5,0"/>
+                        <TextBlock x:Name="SelectedRequestStatus"
+                                 Text="No request selected"
+                                 FontSize="14"
+                                 Foreground="#718096"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
