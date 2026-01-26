@@ -1,19 +1,12 @@
-﻿<Window x:Class="ProductCheckerV2.ViewRequestsWindow"
+﻿<Page x:Class="ProductCheckerV2.ViewRequestsPage"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Request History - Product Checker V2" 
-        Height="850" 
-        Width="1300"
-        MinHeight="700"
-        MinWidth="1100"
-        WindowStartupLocation="CenterOwner"
-        Background="#F5F7FA"
-        Closing="Window_Closing">
+        Background="#F5F7FA">
 
-    <Window.Resources>
+    <Page.Resources>
         <!-- Reuse colors from MainWindow -->
         <SolidColorBrush x:Key="PrimaryBrush" Color="#4361ee"/>
         <SolidColorBrush x:Key="SecondaryBrush" Color="#3a0ca3"/>
@@ -42,6 +35,14 @@
         <SolidColorBrush x:Key="ModalHeaderBackgroundBrush" Color="#4361ee"/>
         <SolidColorBrush x:Key="SuccessModalHeaderBrush" Color="#66BB6A"/>
         <SolidColorBrush x:Key="WarningModalHeaderBrush" Color="#FFB74D"/>
+        <SolidColorBrush x:Key="ChipBackgroundBrush" Color="#EFF6FF"/>
+        <SolidColorBrush x:Key="ChipBorderBrush" Color="#BFDBFE"/>
+        <SolidColorBrush x:Key="ChipTextBrush" Color="#1D4ED8"/>
+
+        <LinearGradientBrush x:Key="RightPanelHeaderBrush" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#EEF2FF" Offset="0"/>
+            <GradientStop Color="#F8FAFC" Offset="1"/>
+        </LinearGradientBrush>
 
         <!-- Auto Refresh Animation -->
         <Storyboard x:Key="AutoRefreshAnimation" RepeatBehavior="Forever">
@@ -157,9 +158,9 @@
             <Setter Property="SelectionUnit" Value="FullRow"/>
             <Setter Property="GridLinesVisibility" Value="None"/>
             <Setter Property="RowHeaderWidth" Value="0"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#E2E8F0"/>
-            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="RowBackground" Value="Transparent"/>
             <Setter Property="AlternatingRowBackground" Value="#F7FAFC"/>
             <Setter Property="HeadersVisibility" Value="Column"/>
@@ -175,7 +176,27 @@
                                 <Setter Property="Background" Value="#4361ee"/>
                                 <Setter Property="Foreground" Value="White"/>
                             </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter Property="Background" Value="#E6F0FF"/>
+                            </MultiTrigger>
                         </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ColumnHeaderStyle">
+                <Setter.Value>
+                    <Style TargetType="DataGridColumnHeader">
+                        <Setter Property="Background" Value="#F8FAFC"/>
+                        <Setter Property="Foreground" Value="#64748B"/>
+                        <Setter Property="FontWeight" Value="SemiBold"/>
+                        <Setter Property="FontSize" Value="12.5"/>
+                        <Setter Property="Padding" Value="14,10"/>
+                        <Setter Property="BorderBrush" Value="#E2E8F0"/>
+                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
                     </Style>
                 </Setter.Value>
             </Setter>
@@ -199,7 +220,7 @@
                             <Grid>
                                 <ScrollViewer x:Name="PART_ContentHost"
                                               VerticalAlignment="Center"
-                                              Margin="15,0,40,0"/>
+                                              Margin="0,0,0,0"/>
                                 <TextBlock x:Name="Watermark"
                                            Text="Search requests..."
                                            Foreground="#A0AEC0"
@@ -270,7 +291,7 @@
             <Setter Property="BorderBrush" Value="#E2E8F0"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
-    </Window.Resources>
+    </Page.Resources>
 
     <Grid Margin="20">
         <!-- Modal Overlay - Hidden by default -->
@@ -323,9 +344,10 @@
                                 VerticalAlignment="Center">
                         <TextBlock Text="🔄"
                                    FontSize="28"
-                                   Margin="0,0,15,0"/>
+                                   Margin="0,0,5,0"/>
                         <TextBlock Text="Rescan Options"
                                    FontSize="22"
+                                   Margin="0,5,0,0"
                                    FontWeight="SemiBold"
                                    Foreground="White"/>
                     </StackPanel>
@@ -357,7 +379,7 @@
                                        FontWeight="SemiBold"
                                        Foreground="{StaticResource TextPrimaryBrush}"
                                        Margin="0,0,0,5"/>
-                            <TextBlock Text="Rescan all listings from the selected request"
+                            <TextBlock Text="Re-scan all listings, including both successful and failed entries"
                                        FontSize="13"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        TextWrapping="Wrap"/>
@@ -441,9 +463,10 @@
                                 VerticalAlignment="Center">
                         <TextBlock Text="📊"
                                    FontSize="28"
-                                   Margin="0,0,15,0"/>
+                                   Margin="0,0,5,0"/>
                         <TextBlock Text="Export to Excel"
                                    FontSize="22"
+                                   Margin="0,4,0,0"
                                    FontWeight="SemiBold"
                                    Foreground="White"/>
                     </StackPanel>
@@ -567,28 +590,13 @@
             </Grid.ColumnDefinitions>
 
             <!-- Header -->
-            <Border Grid.Row="0"
-                    Grid.ColumnSpan="2"
-                    Background="{StaticResource CardBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,0,0,1"
-                    Padding="16,10"
-                    Margin="0,0,0,10">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Image x:Name="LogoImage" Height="36" Width="36" Margin="0,0,10,0"/>
-                    <TextBlock Text="PRODUCT CHECKER"
-                               FontSize="22"
-                               FontWeight="SemiBold"
-                               Foreground="#2D3748"
-                               VerticalAlignment="Center"/>
-                </StackPanel>
-            </Border>
+            <Border Grid.Row="0"></Border>
 
             <!-- Left Panel: REQUESTS (Now on the left side) -->
             <Border Grid.Row="1"
                     Grid.Column="0"
                     Style="{StaticResource ModernCard}"
-                    Margin="0,0,20,0">
+                    Margin="0,-10,20,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -664,12 +672,12 @@
                                                    TextTrimming="CharacterEllipsis"/>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                                            <TextBlock Text="ID:"
+                                            <TextBlock Text="RID:"
                                                        FontSize="14"
                                                        FontWeight="SemiBold"
                                                        Foreground="#718096"
                                                        Margin="0,0,5,0"/>
-                                            <TextBlock Text="{Binding Id}"
+                                            <TextBlock Text="{Binding RequestInfoId}"
                                                        FontSize="14"
                                                        FontWeight="Medium"
                                                        Foreground="#4361ee"
@@ -687,7 +695,7 @@
                                         </StackPanel>
 
                                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                            <TextBlock Text="{Binding CreatedAt, StringFormat='yyyy-MM-dd HH:mm'}"
+                                            <TextBlock Text="{Binding CreatedAt, StringFormat='yyyy MMM d, h:mm tt'}"
                                                        FontSize="12"
                                                        Foreground="#718096"/>
                                             <TextBlock Text=" • "
@@ -721,7 +729,7 @@
             <Border Grid.Row="1"
                     Grid.Column="1"
                     Style="{StaticResource ModernCard}"
-                    Margin="0,0,0,0">
+                    Margin="0,-10,0,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -730,77 +738,94 @@
                     </Grid.RowDefinitions>
 
                     <!-- Selected Request Details -->
-                    <Border Grid.Row="0" 
-                            Background="#F7FAFC"
-                            CornerRadius="8"
-                            Padding="15"
+                    <Border Grid.Row="0"
+                            Background="White"
+                            CornerRadius="12"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
                             Margin="0,0,0,15">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
-                            <!-- Request Icon -->
-                            <Border Grid.Column="0"
-                                    Width="40"
-                                    Height="40"
-                                    Background="#4361ee"
-                                    CornerRadius="8"
-                                    Margin="0,0,15,0">
-                                <TextBlock Text="📋"
-                                         FontSize="18"
-                                         Foreground="White"
-                                         HorizontalAlignment="Center"
-                                         VerticalAlignment="Center"/>
+                            <Border Grid.Row="0"
+                                    Background="{StaticResource RightPanelHeaderBrush}"
+                                    CornerRadius="12,12,12,12"
+                                    Padding="16">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0"
+                                            Width="44"
+                                            Height="44"
+                                            Background="#4361ee"
+                                            CornerRadius="12"
+                                            Margin="0,0,14,0">
+                                        <TextBlock Text="📋"
+                                                 FontSize="20"
+                                                 Margin="0,0,0,3"
+                                                 Foreground="White"
+                                                 HorizontalAlignment="Center"
+                                                 VerticalAlignment="Center"/>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock x:Name="SelectedRequestTitle"
+                                                 Text="No request selected"
+                                                 FontSize="17"
+                                                 FontWeight="SemiBold"
+                                                 Foreground="#1E293B"/>
+                                        <TextBlock x:Name="SelectedRequestInfo"
+                                                 Text="Select a request to view listings"
+                                                 FontSize="13.5"
+                                                 Foreground="#64748B"
+                                                 Margin="0,3,0,0"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2"
+                                                Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <Button x:Name="RescanButton"
+                                                Content="🔄 Rescan"
+                                                Style="{StaticResource ModernButton}"
+                                                Click="RescanButton_Click"
+                                                Background="#F59E0B"
+                                                VerticalAlignment="Center"
+                                                IsEnabled="False"
+                                                Visibility="Collapsed"/>
+                                        <Button x:Name="ExportButton" 
+                                                Content="📥 Export to Excel"
+                                                Style="{StaticResource ModernButton}"
+                                                Click="ExportButton_Click"
+                                                Background="#66BB6A"
+                                                VerticalAlignment="Center"
+                                                IsEnabled="False"/>
+                                    </StackPanel>
+                                </Grid>
                             </Border>
 
-                            <!-- Request Info -->
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock x:Name="SelectedRequestTitle"
-                                         Text="No request selected"
-                                         FontSize="16"
-                                         FontWeight="SemiBold"
-                                         Foreground="#2D3748"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                                    <TextBlock x:Name="SelectedRequestInfo"
-                                             Text="Select a request to view listings"
-                                             FontSize="14"
-                                             Foreground="#718096"/>
-                                </StackPanel>
-                            </StackPanel>
-
-                            <!-- Action Buttons -->
-                            <StackPanel Grid.Column="2"
-                                        Orientation="Horizontal"
-                                        VerticalAlignment="Center">
-                                <Button x:Name="RescanButton"
-                                        Content="🔄 Rescan"
-                                        Style="{StaticResource ModernButton}"
-                                        Click="RescanButton_Click"
-                                        Background="#F59E0B"
-                                        VerticalAlignment="Center"
-                                        IsEnabled="False"
-                                        Visibility="Collapsed"/>
-                                <Button x:Name="ExportButton" 
-                                        Content="📥 Export to Excel"
-                                        Style="{StaticResource ModernButton}"
-                                        Click="ExportButton_Click"
-                                        Background="#66BB6A"
-                                        VerticalAlignment="Center"
-                                        IsEnabled="False"/>
-                            </StackPanel>
+                            
                         </Grid>
                     </Border>
 
                     <!-- Listings DataGrid -->
-                    <DataGrid x:Name="ListingsDataGrid"
-              Grid.Row="1"
-              Style="{StaticResource ModernDataGrid}"
-              AutoGenerateColumns="False"
-              HorizontalScrollBarVisibility="Auto"
-              ColumnWidth="*">
+                    <Border Grid.Row="1"
+                            Background="White"
+                            BorderBrush="#E2E8F0"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            Padding="4">
+                        <DataGrid x:Name="ListingsDataGrid"
+                                  Style="{StaticResource ModernDataGrid}"
+                                  AutoGenerateColumns="False"
+                                  HorizontalScrollBarVisibility="Auto"
+                                  ColumnWidth="*">
 
                         <DataGrid.Columns>
 
@@ -808,21 +833,20 @@
                             <DataGridTextColumn Header="Listing ID"
                                 Binding="{Binding ListingId}"
                                 Width="SizeToCells"
-                                MinWidth="80"/>
+                                MinWidth="90"/>
 
                             <DataGridTextColumn Header="Case Number"
                                 Binding="{Binding CaseNumber}"
                                 Width="SizeToCells"
-                                MinWidth="90"/>
+                                MinWidth="120"/>
 
                             <DataGridTextColumn Header="Platform"
                                 Binding="{Binding Platform}"
                                 Width="SizeToCells"
-                                MinWidth="80">
+                                MinWidth="100">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
                                         <Setter Property="FontWeight" Value="SemiBold"/>
-                                        <Setter Property="Foreground" Value="#4361ee"/>
                                     </Style>
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
@@ -851,18 +875,6 @@
                                 Width="160"
                                 MinWidth="120"/>
 
-                            <DataGridTextColumn Header="Error, If any"
-                                Binding="{Binding ErrorDetail}"
-                                Width="2*"
-                                MinWidth="200">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-                                        <Setter Property="ToolTip" Value="{Binding ErrorDetail}"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
-
                             <DataGridTextColumn Header="Notes"
                                 Binding="{Binding Notes}"
                                 Width="2*"
@@ -876,27 +888,71 @@
                             </DataGridTextColumn>
 
                         </DataGrid.Columns>
-                    </DataGrid>
+                        </DataGrid>
+                    </Border>
 
                     <!-- Status Bar -->
-                    <StackPanel Grid.Row="2" 
-                              Orientation="Horizontal"
-                              Margin="0,15,0,0">
-                        <TextBlock x:Name="ListingCountText" 
-                                 Text="0 listings"
-                                 FontSize="14"
-                                 Foreground="#718096"/>
-                        <TextBlock Text=" • "
-                                 FontSize="14"
-                                 Foreground="#718096"
-                                 Margin="5,0,5,0"/>
-                        <TextBlock x:Name="SelectedRequestStatus"
-                                 Text="No request selected"
-                                 FontSize="14"
-                                 Foreground="#718096"/>
-                    </StackPanel>
+                    <Grid Grid.Row="2"
+                          Margin="0,15,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Row="1"
+                                Orientation="Horizontal">
+                            <Border Background="{StaticResource ChipBackgroundBrush}"
+                                    BorderBrush="{StaticResource ChipBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="10,4"
+                                    Margin="0,0,10,0">
+                                <TextBlock x:Name="SelectedRequestStatus"
+                                       Text="No request selected"
+                                       FontSize="12.5"
+                                       Foreground="{StaticResource ChipTextBrush}"/>
+                            </Border>
+                            <Border Background="#F1F5F9"
+                                    BorderBrush="#E2E8F0"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    Padding="10,4">
+                                <TextBlock x:Name="ListingCountText"
+                                        Text="0 listings"
+                                        FontSize="12.5"
+                                        Foreground="#475569"/>
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <TextBlock x:Name="ProgressName"
+                                       Text="Progress:"
+                                       FontSize="14"
+                                       Foreground="#718096"
+                                       Margin="0,0,6,0"/>
+                            <ProgressBar x:Name="ListingProgressBar"
+                                         Width="180"
+                                         Height="6"
+                                         Minimum="0"
+                                         Maximum="0"
+                                         Value="0"
+                                         VerticalAlignment="Center"
+                                         Background="{StaticResource BorderBrush}"
+                                         Foreground="{StaticResource PrimaryBrush}"/>
+                            <TextBlock x:Name="ListingProgressText"
+                                       Text="0/0"
+                                       FontSize="13"
+                                       Foreground="#718096"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </Border>
         </Grid>
     </Grid>
-</Window>
+</Page>
+
+

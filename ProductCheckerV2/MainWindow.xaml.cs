@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ClosedXML.Excel;
 using ProductCheckerV2.Common;
+using ProductCheckerV2.Artemis;
 using ProductCheckerV2.Database;
 using ProductCheckerV2.Database.Models;
 using System;
@@ -8,11 +9,17 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Animation;
+using DocumentFormat.OpenXml.Drawing.Charts;
+using System.Windows.Media.Effects;
+using System.Windows.Threading;
 
 namespace ProductCheckerV2
 {
@@ -20,11 +27,13 @@ namespace ProductCheckerV2
     {
         private List<UploadedProductData> _uploadedData = new List<UploadedProductData>();
         private BackgroundWorker _processingWorker;
-        private string _applicationName = "Product Checker V2";
+        private string _applicationName = "";
         private bool _isDragOver = false;
         private string _currentFilePath = string.Empty;
         private int _currentRequestId = 0;
         private int _currentRecordsProcessed = 0;
+        private static List<Platform> _platformsCache;
+        private bool _isFileValidationActive = false;
 
         public MainWindow()
         {
@@ -39,11 +48,13 @@ namespace ProductCheckerV2
             try
             {
                 this.Title = _applicationName;
+                this.Icon = new BitmapImage(new Uri("Assets/Logo.ico".AbsPath()));
                 LogoImage.Source = new BitmapImage(new Uri("Assets/Logo.ico".AbsPath()));
                 InitializeDatabase();
                 UpdateStatusBar("Ready - Select or drag & drop Excel file");
                 UpdateStatsDisplay();
                 UpdateDataGridVisibility(false);
+                ShowUploadPage();
             }
             catch (Exception ex)
             {
@@ -56,7 +67,7 @@ namespace ProductCheckerV2
         {
             try
             {
-                using var context = new ProductCheckerDbContext();
+                using var context = new ProductCheckerV2DbContext();
                 context.Database.EnsureCreated();
 
                 if (context.Database.CanConnect())
@@ -96,7 +107,7 @@ namespace ProductCheckerV2
             _processingWorker.RunWorkerCompleted += ProcessingWorker_RunWorkerCompleted;
         }
 
-        private void BrowseButton_Click(object sender, RoutedEventArgs e)
+        private async void BrowseButton_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new Microsoft.Win32.OpenFileDialog
             {
@@ -110,7 +121,7 @@ namespace ProductCheckerV2
 
             if (dialog.ShowDialog() == true)
             {
-                ValidateAndLoadFile(dialog.FileName);
+                await ValidateAndLoadFileAsync(dialog.FileName);
             }
         }
 
@@ -127,14 +138,14 @@ namespace ProductCheckerV2
             e.Handled = true;
         }
 
-        private void MainWindow_PreviewDrop(object sender, DragEventArgs e)
+        private async void MainWindow_PreviewDrop(object sender, DragEventArgs e)
         {
             if (e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
                 if (files.Length > 0)
                 {
-                    ValidateAndLoadFile(files[0]);
+                    await ValidateAndLoadFileAsync(files[0]);
                 }
             }
         }
@@ -157,7 +168,7 @@ namespace ProductCheckerV2
             UploadArea.Background = Brushes.Transparent;
         }
 
-        private void UploadArea_PreviewDrop(object sender, DragEventArgs e)
+        private async void UploadArea_PreviewDrop(object sender, DragEventArgs e)
         {
             _isDragOver = false;
             UploadArea.Background = Brushes.Transparent;
@@ -167,13 +178,13 @@ namespace ProductCheckerV2
                 string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
                 if (files.Length > 0)
                 {
-                    ValidateAndLoadFile(files[0]);
+                    await ValidateAndLoadFileAsync(files[0]);
                 }
             }
             e.Handled = true;
         }
 
-        private void ValidateAndLoadFile(string filePath)
+        private async Task ValidateAndLoadFileAsync(string filePath)
         {
             try
             {
@@ -197,7 +208,7 @@ namespace ProductCheckerV2
                     return;
                 }
 
-                LoadExcelFile(filePath);
+                await LoadExcelFileAsync(filePath);
             }
             catch (Exception ex)
             {
@@ -206,8 +217,9 @@ namespace ProductCheckerV2
             }
         }
 
-        private void LoadExcelFile(string filePath)
+        private async Task LoadExcelFileAsync(string filePath)
         {
+            ShowValidationOverlay("Validating Excel file...", "Reading rows and checking file structure...");
             try
             {
                 _currentFilePath = filePath;
@@ -215,11 +227,13 @@ namespace ProductCheckerV2
                 UpdateStatusBar($"Loading file: {Path.GetFileName(filePath)}...");
 
                 // Read Excel data
-                var data = ReadExcelData(filePath);
+                await Task.Yield();
+                var data = await Task.Run(() => ReadExcelData(filePath));
                 _uploadedData = data;
 
                 if (_uploadedData.Count == 0)
                 {
+                    HideValidationOverlay();
                     MessageBox.Show("No valid data found in the Excel file.\n\n" +
                                   "Please ensure the file contains columns:\n" +
                                   "A: Listing ID, B: Case Number, C: URL",
@@ -228,15 +242,25 @@ namespace ProductCheckerV2
                     return;
                 }
 
-                // Update UI
+                ProgressText.Text = "Validating listings...";
+                ProgressSubText.Text = "Checking duplicates and verifying IDs...";
+                var validationErrors = await ValidateListingsAsync(_uploadedData);
+                if (validationErrors.Count > 0)
+                {
+                    HideValidationOverlay();
+                    MessageBox.Show("Validation failed:\n\n" + string.Join("\n", validationErrors),
+                        "Validation Errors", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+                    ClearAllData();
+                    return;
+                }
+
                 DataGridPreview.ItemsSource = _uploadedData;
                 UpdateDataGridVisibility(true);
                 UpdateStatsDisplay();
 
-                // Update record count text
                 RecordCountText.Text = $"{_uploadedData.Count} records loaded";
 
-                // Update file info items
                 var platforms = _uploadedData.Select(d => d.Platform).Distinct().ToList();
                 var infoItems = new List<FileInfoItem>
                 {
@@ -260,9 +284,16 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
+                HideValidationOverlay();
                 MessageBox.Show($"Error loading Excel file:\n\n{ex.Message}",
                     "File Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 ClearAllData();
+            }
+            finally
+            {
+                HideValidationOverlay();
+                BrowseButton.IsEnabled = true;
+                ClearButton.IsEnabled = true;
             }
         }
 
@@ -339,20 +370,176 @@ namespace ProductCheckerV2
             return data;
         }
 
-        private string GetPlatformFromUrl(string url)
+        private async Task<List<string>> ValidateListingsAsync(List<UploadedProductData> listings)
+        {
+            var errors = new List<string>();
+            if (listings == null || listings.Count == 0)
+            {
+                errors.Add("No valid listings found in the file");
+                return errors;
+            }
+
+            var duplicateIds = listings
+                .Select(l => l.ListingId?.Trim())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .GroupBy(id => id)
+                .Where(g => g.Count() > 1)
+                .Select(g => g.Key)
+                .ToList();
+
+            if (duplicateIds.Count > 0)
+            {
+                errors.Add($"Duplicate Listing IDs found: {string.Join(", ", duplicateIds)}");
+            }
+
+            var ids = listings
+                .Select(l => l.ListingId?.Trim())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct()
+                .ToArray();
+
+            if (ids.Length > 0)
+            {
+                try
+                {
+                    var response = await ArtemisGlobalClient.Instance.ValidateListingsApi
+                        .Execute(ids)
+                        .ConfigureAwait(false);
+                    var responseBody = await response.Content.ReadAsStringAsync()
+                        .ConfigureAwait(false);
+
+                    using JsonDocument doc = JsonDocument.Parse(responseBody);
+                    JsonElement root = doc.RootElement;
+
+                    if (root.TryGetProperty("error", out JsonElement errorElement))
+                    {
+                        string errorMessage = errorElement.GetString() ?? "Validation error";
+                        if (root.TryGetProperty("missing_ids", out JsonElement missingIdsElement))
+                        {
+                            var missingIds = missingIdsElement.EnumerateArray()
+                                .Select(id => id.ToString())
+                                .ToList();
+
+                            errors.Add(errorMessage);
+                            errors.AddRange(missingIds);
+                            return errors;
+                        }
+                        errors.Add(errorMessage);
+                        return errors;
+                    }
+                }
+                catch (HttpRequestException ex)
+                {
+                    errors.Add($"API request failed: {ex.Message}");
+                    return errors;
+                }
+                catch (Exception ex)
+                {
+                    errors.Add($"An error occurred: {ex.Message}");
+                    return errors;
+                }
+            }
+
+            for (int i = 0; i < listings.Count; i++)
+            {
+                int rowNumber = i + 2;
+                var listingId = listings[i].ListingId?.Trim();
+
+                if (string.IsNullOrWhiteSpace(listingId))
+                {
+                    errors.Add($"row {rowNumber}: Listing ID cannot be empty");
+                }
+                else if (!long.TryParse(listingId, out var parsedId) || parsedId <= 0)
+                {
+                    errors.Add($"row {rowNumber}: Listing ID must be positive (Value: {listingId})");
+                }
+
+                if (string.IsNullOrWhiteSpace(listings[i].ProductUrl))
+                {
+                    errors.Add($"row {rowNumber}: Product URL cannot be empty");
+                }
+                else
+                {
+                    if (!listings[i].ProductUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                        !listings[i].ProductUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        listings[i].ProductUrl = "https://" + listings[i].ProductUrl;
+                    }
+
+                    if (!Uri.TryCreate(listings[i].ProductUrl, UriKind.Absolute, out Uri uriResult) ||
+                        (uriResult.Scheme != Uri.UriSchemeHttp && uriResult.Scheme != Uri.UriSchemeHttps))
+                    {
+                        errors.Add($"row {rowNumber}: Invalid URL format - {listings[i].ProductUrl}");
+                    }
+                }
+            }
+
+            return errors;
+        }
+
+        public static string GetPlatformFromUrl(string url)
         {
             if (string.IsNullOrWhiteSpace(url))
-                return "UNKNOWN";
+            {
+                return "Other|Not Supported";
+            }
 
-            url = url.ToLower();
+            var normalizedUrl = url.Trim().ToLowerInvariant();
+            if (!normalizedUrl.StartsWith("http://") && !normalizedUrl.StartsWith("https://"))
+            {
+                normalizedUrl = $"https://{normalizedUrl}";
+            }
 
-            if (url.Contains("amazon.")) return "AMAZON";
-            if (url.Contains("ebay.")) return "EBAY";
-            if (url.Contains("walmart.")) return "WALMART";
-            if (url.Contains("target.")) return "TARGET";
-            if (url.Contains("bestbuy.")) return "BESTBUY";
+            if (!Uri.TryCreate(normalizedUrl, UriKind.Absolute, out var uri))
+            {
+                return "Other|Not Supported";
+            }
 
-            return "OTHER";
+            var host = uri.Host.ToLowerInvariant();
+            var platforms = GetPlatformsCache();
+
+            foreach (var platform in platforms)
+            {
+                var domains = platform.Domains;
+                if (domains == null)
+                {
+                    continue;
+                }
+
+                if (domains.Any(domain => host.Contains(domain.ToLowerInvariant())))
+                {
+                    if (platform.Availability == 1 && !string.IsNullOrWhiteSpace(platform.Name))
+                    {
+                        return platform.Name;
+                    }
+
+                    return string.IsNullOrWhiteSpace(platform.Name)
+                        ? "Other|Not Supported"
+                        : $"{platform.Name}|Not Supported";
+                }
+            }
+
+            return "Other|Not Supported";
+        }
+
+        private static List<Platform> GetPlatformsCache()
+        {
+            if (_platformsCache != null)
+            {
+                return _platformsCache;
+            }
+
+            try
+            {
+                using var context = new ProductCheckerDbContext();
+                _platformsCache = context.Platforms.ToList();
+            }
+            catch
+            {
+                _platformsCache = new List<Platform>();
+            }
+
+            return _platformsCache;
         }
 
         private void ClearButton_Click(object sender, RoutedEventArgs e)
@@ -487,6 +674,7 @@ namespace ProductCheckerV2
             ProgressText.Text = "Creating request...";
             ProgressSubText.Text = "Initializing database connection...";
             MainProgressBar.Value = 0;
+            MainProgressBar.IsIndeterminate = false;
             ProgressOverlay.Visibility = Visibility.Visible;
             StartButton.IsEnabled = false;
             BrowseButton.IsEnabled = false;
@@ -510,7 +698,7 @@ namespace ProductCheckerV2
                 string fileName = string.IsNullOrEmpty(_currentFilePath) ?
                     "Unknown file" : Path.GetFileName(_currentFilePath);
 
-                using var context = new ProductCheckerDbContext();
+                using var context = new ProductCheckerV2DbContext();
 
                 // Create new requestInfo
                 var requestInfo = new RequestInfos
@@ -629,6 +817,7 @@ namespace ProductCheckerV2
             Dispatcher.Invoke(() =>
             {
                 ProgressOverlay.Visibility = Visibility.Collapsed;
+                MainProgressBar.IsIndeterminate = false;
                 StartButton.IsEnabled = true;
                 BrowseButton.IsEnabled = true;
                 ClearButton.IsEnabled = true;
@@ -654,11 +843,6 @@ namespace ProductCheckerV2
 
         private void ShowSuccessModal(int requestId, int recordsProcessed)
         {
-            SuccessRequestId.Text = $"Request #{requestId} created";
-            SuccessRecordCount.Text = $"{recordsProcessed} records processed";
-            SuccessUserName.Text = Environment.UserName ?? "SystemUser";
-            SuccessTimestamp.Text = DateTime.Now.ToString("hh:mm tt");
-
             ShowModal(SuccessModal);
         }
 
@@ -672,7 +856,37 @@ namespace ProductCheckerV2
 
         private void UpdateStatusBar(string message)
         {
-            this.Title = $"{_applicationName} - {message}";
+            this.Title = $"{message}";
+        }
+
+        private void ShowValidationOverlay(string title, string subText)
+        {
+            if (_isFileValidationActive)
+            {
+                return;
+            }
+
+            _isFileValidationActive = true;
+            ProgressText.Text = title;
+            ProgressSubText.Text = subText;
+            MainProgressBar.IsIndeterminate = true;
+            MainProgressBar.Value = 0;
+            ProgressOverlay.Visibility = Visibility.Visible;
+            BrowseButton.IsEnabled = false;
+            ClearButton.IsEnabled = false;
+            StartButton.IsEnabled = false;
+        }
+
+        private void HideValidationOverlay()
+        {
+            if (!_isFileValidationActive)
+            {
+                return;
+            }
+
+            _isFileValidationActive = false;
+            ProgressOverlay.Visibility = Visibility.Collapsed;
+            MainProgressBar.IsIndeterminate = false;
         }
 
         private void DataGrid_AutoGeneratingColumn(object sender, DataGridAutoGeneratingColumnEventArgs e)
@@ -690,14 +904,51 @@ namespace ProductCheckerV2
         {
             try
             {
-                var viewWindow = new ViewRequestsWindow();
-                viewWindow.Owner = this;
-                viewWindow.ShowDialog();
+                ShowViewRequestsPage();
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Error opening requests view: {ex.Message}",
                     "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void NavUploadButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowUploadPage();
+        }
+
+        private void NavRequestsButton_Click(object sender, RoutedEventArgs e)
+        {
+            ShowViewRequestsPage();
+        }
+
+        private void ShowUploadPage()
+        {
+            MainContentFrame.Content = null;
+            MainContentFrame.Visibility = Visibility.Collapsed;
+            UploadPageRoot.Visibility = Visibility.Visible;
+            UpdateNavSelection(false);
+        }
+
+        private void ShowViewRequestsPage()
+        {
+            UploadPageRoot.Visibility = Visibility.Collapsed;
+            MainContentFrame.Visibility = Visibility.Visible;
+            MainContentFrame.Navigate(new ViewRequestsPage());
+            UpdateNavSelection(true);
+        }
+
+        private void UpdateNavSelection(bool isRequestsPage)
+        {
+            if (NavUploadButton != null)
+            {
+                NavUploadButton.IsChecked = !isRequestsPage;
+            }
+
+            if (NavRequestsButton != null)
+            {
+                NavRequestsButton.IsChecked = isRequestsPage;
             }
         }
 

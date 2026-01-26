@@ -5,8 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ProductCheckerV2"
         mc:Ignorable="d"
-        Title="Product Checker V2" 
-        Height="850" 
+        Title="Product Checker"
+        Height="810" 
         Width="1400"
         MinHeight="700"
         MinWidth="1200"
@@ -275,11 +275,98 @@
             <Setter Property="StrokeThickness" Value="4"/>
             <Setter Property="Stroke" Value="{StaticResource BorderBrush}"/>
         </Style>
+
+        <Style x:Key="NavToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid>
+                            <Border x:Name="NavBorder"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="8"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <Border x:Name="NavIndicator"
+                                    Height="3"
+                                    Background="{StaticResource PrimaryBrush}"
+                                    VerticalAlignment="Bottom"
+                                    Opacity="0"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="NavBorder" Property="Background" Value="{StaticResource HoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="NavBorder" Property="Background" Value="{StaticResource SelectedBrush}"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                                <Setter TargetName="NavIndicator" Property="Opacity" Value="1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Top Navbar -->
+        <Border Grid.Row="0"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="30,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image x:Name="LogoImage"
+                           Height="36"
+                           Width="36"
+                           Margin="0,0,12,0"/>
+                    <TextBlock Text="PRODUCT CHECKER"
+                               FontSize="20"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <ToggleButton x:Name="NavUploadButton"
+                                  Content="New Request"
+                                  Style="{StaticResource NavToggleButtonStyle}"
+                                  Click="NavUploadButton_Click"
+                                  IsChecked="True"/>
+                    <ToggleButton x:Name="NavRequestsButton"
+                                  Content="View Requests"
+                                  Style="{StaticResource NavToggleButtonStyle}"
+                                  Click="NavRequestsButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <!-- Modal Overlay - Hidden by default -->
-        <Border x:Name="ModalOverlay"
+        <Border x:Name="ModalOverlay" Grid.RowSpan="2"
                 Background="{StaticResource ModalOverlayBrush}"
                 Visibility="Collapsed"
                 Panel.ZIndex="1000">
@@ -297,7 +384,7 @@
         </Border>
 
         <!-- Confirm Processing Modal -->
-        <Border x:Name="ConfirmProcessingModal"
+        <Border x:Name="ConfirmProcessingModal" Grid.RowSpan="2"
                 Width="500"
                 Height="400"
                 Background="{StaticResource ModalBackgroundBrush}"
@@ -327,10 +414,11 @@
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center">
                         <TextBlock Text="🚀"
-                                   FontSize="20"
-                                   Margin="0,0,15,0"/>
+                                   FontSize="25"
+                                   Margin="0,0,5,0"/>
                         <TextBlock Text="Submit Request"
                                    FontSize="22"
+                                   Margin="0,2,0,0"
                                    FontWeight="SemiBold"
                                    Foreground="White"/>
                     </StackPanel>
@@ -394,9 +482,9 @@
         </Border>
 
         <!-- Success Modal -->
-        <Border x:Name="SuccessModal"
+        <Border x:Name="SuccessModal" Grid.RowSpan="2"
                 Width="450"
-                Height="360"
+                Height="350"
                 Background="{StaticResource ModalBackgroundBrush}"
                 CornerRadius="16"
                 Panel.ZIndex="1001"
@@ -425,11 +513,12 @@
                                 VerticalAlignment="Center">
                         <TextBlock Text="✅"
                                    FontSize="28"
-                                   Margin="0,0,15,0"/>
+                                   Margin="0,0,10,0"/>
                         <TextBlock Text="Request Complete"
                                    FontSize="22"
                                    FontWeight="SemiBold"
-                                   Foreground="White"/>
+                                   Foreground="White"
+                                   Margin="0,4,0,0"/>
                     </StackPanel>
                 </Border>
 
@@ -446,37 +535,11 @@
                     </Grid>
 
                     <TextBlock x:Name="SuccessRequestId"
-                               Text="Request #0 created"
+                               Text="Sucesssfully submittted request."
                                FontSize="18"
                                FontWeight="Bold"
                                Foreground="#10B981"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,10"/>
-
-                    <TextBlock x:Name="SuccessRecordCount"
-                               Text="0 records processed"
-                               FontSize="15"
-                               Foreground="{StaticResource TextSecondaryBrush}"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,20"/>
-
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="👤"
-                                   FontSize="14"
-                                   Margin="0,0,5,0"/>
-                        <TextBlock x:Name="SuccessUserName"
-                                   Text="User"
-                                   FontSize="14"
-                                   Foreground="{StaticResource TextSecondaryBrush}"/>
-                        <TextBlock Text=" • "
-                                   FontSize="14"
-                                   Foreground="{StaticResource TextSecondaryBrush}"
-                                   Margin="5,0,5,0"/>
-                        <TextBlock x:Name="SuccessTimestamp"
-                                   Text="Just now"
-                                   FontSize="14"
-                                   Foreground="{StaticResource TextSecondaryBrush}"/>
-                    </StackPanel>
+                               HorizontalAlignment="Center"/>
                 </StackPanel>
 
                 <!-- Modal Footer -->
@@ -490,20 +553,20 @@
                                 Content="Start New Request"
                                 Style="{StaticResource SuccessModalButton}"
                                 Click="NewRequestButton_Click"
-                                Width="140"/>
+                                Width="150"/>
                         <Button x:Name="ViewRequestsSuccessButton"
                                 Content="View Requests"
                                 Style="{StaticResource InfoModalButton}"
                                 Click="ViewRequestsSuccessButton_Click"
                                 Margin="10,0,0,0"
-                                Width="120"/>
+                                Width="150"/>
                     </StackPanel>
                 </Border>
             </Grid>
         </Border>
 
         <!-- Error Modal -->
-        <Border x:Name="ErrorModal"
+        <Border x:Name="ErrorModal" Grid.RowSpan="2"
                 Width="500"
                 Height="320"
                 Background="{StaticResource ModalBackgroundBrush}"
@@ -596,62 +659,26 @@
         </Border>
 
         <!-- Main Content -->
-        <Grid>
-            <!-- App Header -->
-            <Border Background="{StaticResource CardBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
-                    BorderThickness="0,0,0,1"
-                    Padding="30,20"
-                    Height="95"
-                    VerticalAlignment="Top">
-                <Grid>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <Image x:Name="LogoImage" Height="50" Width="50" Margin="0,0,10,0" RenderTransformOrigin="0.5,0.5">
-                            <Image.RenderTransform>
-                                <TransformGroup>
-                                    <ScaleTransform x:Name="LogoScaleTransform" />
-                                </TransformGroup>
-                            </Image.RenderTransform>
-                        </Image>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="PRODUCT CHECKER" 
-                                     FontSize="30" 
-                                     FontWeight="Bold" 
-                                     Foreground="{StaticResource TextPrimaryBrush}"/>
-                        </StackPanel>
-                    </StackPanel>
+        <Grid Grid.Row="1">
+            <Grid x:Name="UploadPageRoot">
+                <!-- Main Content -->
+                <Grid Margin="20,10,20,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="420"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                    <!-- View Requests Button -->
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <Button x:Name="ViewRequestsButton"
-                                Content="View All Product Checker Requests"
-                                Style="{StaticResource PrimaryButton}"
-                                Click="ViewRequestsButton_Click"
-                                Width="254"
-                                Margin="0,0,0,0"/>
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <!-- Main Content -->
-            <Grid Margin="30,120,30,10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="420"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- Left Panel: Upload Section -->
-                <StackPanel Grid.Column="0" Margin="0,0,20,20">
-                    <!-- Upload Card -->
-                    <Border Style="{StaticResource ModernCard}" Height="660">
+                    <!-- Left Panel: Upload Section -->
+                    <Border Grid.Column="0" Margin="0,0,20,20" Style="{StaticResource ModernCard}">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
                                 <Grid Width="32" Height="32" Margin="0,0,12,0">
                                     <Ellipse Fill="{StaticResource PrimaryBrush}" Opacity="0.1"/>
-                                    <TextBlock Text="📤" 
+                                    <TextBlock Text="📤"
                                              FontSize="16" 
+                                             Margin="0,0,0,5"
                                              HorizontalAlignment="Center"
-                                             VerticalAlignment="Center"/>
+                                             VerticalAlignment="Center" Height="21"/>
                                 </Grid>
                                 <TextBlock Style="{StaticResource SectionHeader}" Text="File Upload" Margin="0"/>
                             </StackPanel>
@@ -670,6 +697,7 @@
                                         <Ellipse Fill="{StaticResource PrimaryBrush}" Opacity="0.08"/>
                                         <TextBlock Text="📁" 
                                                  FontSize="32" 
+                                                 Margin="0,0,0,5"
                                                  HorizontalAlignment="Center"
                                                  VerticalAlignment="Center"/>
                                     </Grid>
@@ -743,209 +771,194 @@
                             </Border>
                         </StackPanel>
                     </Border>
-                </StackPanel>
 
-                <!-- Right Panel: Data Preview -->
-                <Border Grid.Column="1" Style="{StaticResource ModernCard}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                    <!-- Right Panel: Data Preview -->
+                    <Border Grid.Column="1" Style="{StaticResource ModernCard}">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
-                        <!-- Preview Header with Action Button -->
-                        <Grid Grid.Row="0" Margin="0,0,0,20">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+                            <!-- Preview Header with Action Button -->
+                            <Grid Grid.Row="0" Margin="0,0,0,20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
 
-                            <!-- Left side: Title and stats -->
-                            <StackPanel Grid.Column="0">
-                                <StackPanel Orientation="Horizontal">
-                                    <Grid Width="32" Height="32" Margin="0,0,12,0">
-                                        <Ellipse Fill="{StaticResource SuccessBrush}" Opacity="0.1"/>
-                                        <TextBlock Text="📊" 
-                                                 FontSize="16" 
-                                                 HorizontalAlignment="Center"
-                                                 VerticalAlignment="Center"/>
-                                    </Grid>
-                                    <TextBlock Style="{StaticResource SectionHeader}" Text="Data Preview" Margin="0"/>
-                                </StackPanel>
-                                <TextBlock x:Name="RecordCountText" 
+                                <Grid Width="50" Height="50" Margin="0,0,12,0">
+                                    <Ellipse Fill="{StaticResource SuccessBrush}" Opacity="0.1"/>
+                                    <TextBlock Text="📊" 
+                                         FontSize="16" 
+                                         Margin="0,0,0,2"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- Left side: Title and stats -->
+                                <StackPanel Grid.Column="1">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Style="{StaticResource SectionHeader}" Text="Data Preview" Margin="0"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="RecordCountText" 
                                          Text="0 records loaded"
                                          FontSize="14"
                                          Foreground="{StaticResource TextLightBrush}"
-                                         Margin="44,0,0,0"/>
-                            </StackPanel>
+                                         Margin="0,0,0,0"/>
+                                </StackPanel>
 
-                            <!-- Right side: Submit Request Button -->
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <Button x:Name="StartButton" 
-                                        Content="🚀 Submit Request"
+                                <!-- Right side: Submit Request Button -->
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                    <Button x:Name="StartButton" 
+                                        Content="Submit Request"
                                         Style="{StaticResource SuccessButton}"
                                         Click="StartButton_Click"
-                                        Width="200"
+                                        Width="160"
                                         Height="50"
                                         IsEnabled="False">
-                                    <Button.Effect>
-                                        <DropShadowEffect BlurRadius="15" 
+                                        <Button.Effect>
+                                            <DropShadowEffect BlurRadius="15" 
                                             ShadowDepth="0" 
                                             Opacity="0.15" 
                                             Color="#10B981"/>
-                                    </Button.Effect>
-                                </Button>
-                            </StackPanel>
-                        </Grid>
+                                        </Button.Effect>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
 
-                        <!-- Data Grid Container -->
-                        <Border Grid.Row="1" 
+                            <!-- Data Grid Container -->
+                            <Border Grid.Row="1" 
                                 Background="White"
                                 BorderBrush="{StaticResource BorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="12"
                                 Margin="0,0,0,20">
-                            <Grid>
-                                <!-- Empty State -->
-                                <Border x:Name="EmptyState" 
+                                <Grid>
+                                    <!-- Empty State -->
+                                    <Border x:Name="EmptyState" 
                                         Visibility="Visible"
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         Padding="40">
-                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Grid Width="64" Height="64" Margin="0,0,0,20">
-                                            <Ellipse Fill="{StaticResource BorderLightBrush}"/>
-                                            <TextBlock Text="📁" 
+                                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Grid Width="64" Height="64" Margin="0,0,0,20">
+                                                <Ellipse Fill="{StaticResource BorderLightBrush}"/>
+                                                <TextBlock Text="📁" 
                                                      FontSize="24" 
+                                                     Margin="0,0,0,5"
                                                      HorizontalAlignment="Center"
                                                      VerticalAlignment="Center"/>
-                                        </Grid>
-                                        <TextBlock Text="No Data Loaded" 
+                                            </Grid>
+                                            <TextBlock Text="No Data Loaded" 
                                                  FontSize="16" 
                                                  FontWeight="Bold"
                                                  Foreground="{StaticResource TextSecondaryBrush}"
                                                  HorizontalAlignment="Center"
                                                  Margin="0,0,0,8"/>
-                                        <TextBlock Text="Upload an Excel file to preview data" 
+                                            <TextBlock Text="Upload an Excel file to preview data" 
                                                  FontSize="14"
                                                  Foreground="{StaticResource TextLightBrush}"
                                                  HorizontalAlignment="Center"/>
-                                    </StackPanel>
-                                </Border>
+                                        </StackPanel>
+                                    </Border>
 
-                                <!-- Data Grid -->
-                                <DataGrid x:Name="DataGridPreview" 
+                                    <!-- Data Grid -->
+                                    <DataGrid x:Name="DataGridPreview" 
                                         Style="{StaticResource ModernDataGrid}"
                                         AutoGeneratingColumn="DataGrid_AutoGeneratingColumn"
                                         Visibility="Collapsed">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Listing ID" 
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Listing ID" 
                                                           Binding="{Binding ListingId}" 
                                                           Width="160"/>
-                                        <DataGridTextColumn Header="Case Number" 
+                                            <DataGridTextColumn Header="Case Number" 
                                                           Binding="{Binding CaseNumber}" 
                                                           Width="160"/>
-                                        <DataGridTextColumn Header="Platform" 
+                                            <DataGridTextColumn Header="Platform" 
                                                           Binding="{Binding Platform}" 
                                                           Width="140">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="HorizontalAlignment" Value="Left"/>
-                                                    <Setter Property="VerticalAlignment" Value="Center"/>
-                                                    <Setter Property="Padding" Value="8,4"/>
-                                                    <Setter Property="FontWeight" Value="Normal"/>
-                                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                                    <Style.Triggers>
-                                                        <Trigger Property="Text" Value="AMAZON">
-                                                            <Setter Property="Background" Value="#FFEBF3FF"/>
-                                                            <Setter Property="Foreground" Value="#1D4ED8"/>
-                                                        </Trigger>
-                                                        <Trigger Property="Text" Value="EBAY">
-                                                            <Setter Property="Background" Value="#FFF5F3FF"/>
-                                                            <Setter Property="Foreground" Value="#7C3AED"/>
-                                                        </Trigger>
-                                                        <Trigger Property="Text" Value="WALMART">
-                                                            <Setter Property="Background" Value="#FFF0FDF4"/>
-                                                            <Setter Property="Foreground" Value="#047857"/>
-                                                        </Trigger>
-                                                        <Trigger Property="Text" Value="TARGET">
-                                                            <Setter Property="Background" Value="#FFFEF3C7"/>
-                                                            <Setter Property="Foreground" Value="#92400E"/>
-                                                        </Trigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-                                        <DataGridTextColumn Header="Product URL" 
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="HorizontalAlignment" Value="Left"/>
+                                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                                        <Setter Property="Padding" Value="8,4"/>
+                                                        <Setter Property="FontWeight" Value="Normal"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                            <DataGridTextColumn Header="Product URL" 
                                                           Binding="{Binding ProductUrl}" 
                                                           Width="*">
-                                            <DataGridTextColumn.ElementStyle>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-                                                    <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
-                                                    <Setter Property="Cursor" Value="Hand"/>
-                                                    <Setter Property="TextDecorations" Value="Underline"/>
-                                                </Style>
-                                            </DataGridTextColumn.ElementStyle>
-                                        </DataGridTextColumn>
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </Grid>
-                        </Border>
-                    </Grid>
-                </Border>
-            </Grid>
+                                                <DataGridTextColumn.ElementStyle>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                        <Setter Property="TextDecorations" Value="Underline"/>
+                                                    </Style>
+                                                </DataGridTextColumn.ElementStyle>
+                                            </DataGridTextColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
 
-            <!-- Progress Overlay -->
-            <Grid x:Name="ProgressOverlay" 
+                <!-- Progress Overlay -->
+                <Grid x:Name="ProgressOverlay" 
                   Background="#80000000" 
                   Visibility="Collapsed"
                   Panel.ZIndex="1000">
-                <Border Background="{StaticResource CardBrush}" 
+                    <Border Background="{StaticResource CardBrush}" 
                         CornerRadius="20" 
                         Padding="50" 
                         Width="460" 
                         Height="280"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <!-- Animated Progress Ring -->
-                        <Grid Width="80" Height="80" Margin="0,0,0,30">
-                            <Ellipse Style="{StaticResource ProgressRingStyle}"/>
-                            <Ellipse Style="{StaticResource ProgressRingStyle}" 
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- Animated Progress Ring -->
+                            <Grid Width="80" Height="80" Margin="0,0,0,30">
+                                <Ellipse Style="{StaticResource ProgressRingStyle}"/>
+                                <Ellipse Style="{StaticResource ProgressRingStyle}" 
                                      Stroke="{StaticResource PrimaryBrush}"
                                      StrokeDashArray="0.1, 0.9"
                                      StrokeDashOffset="0">
-                                <Ellipse.RenderTransform>
-                                    <RotateTransform Angle="0"/>
-                                </Ellipse.RenderTransform>
-                                <Ellipse.Triggers>
-                                    <EventTrigger RoutedEvent="Loaded">
-                                        <BeginStoryboard>
-                                            <Storyboard>
-                                                <DoubleAnimation Storyboard.TargetProperty="(Ellipse.RenderTransform).(RotateTransform.Angle)"
+                                    <Ellipse.RenderTransform>
+                                        <RotateTransform Angle="0"/>
+                                    </Ellipse.RenderTransform>
+                                    <Ellipse.Triggers>
+                                        <EventTrigger RoutedEvent="Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(Ellipse.RenderTransform).(RotateTransform.Angle)"
                                                                From="0" To="360" Duration="0:0:1"
                                                                RepeatBehavior="Forever"/>
-                                            </Storyboard>
-                                        </BeginStoryboard>
-                                    </EventTrigger>
-                                </Ellipse.Triggers>
-                            </Ellipse>
-                            <TextBlock Text="⏳" 
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Ellipse.Triggers>
+                                </Ellipse>
+                                <TextBlock Text="⏳" 
                                      FontSize="24" 
                                      HorizontalAlignment="Center"
                                      VerticalAlignment="Center"/>
-                        </Grid>
+                            </Grid>
 
-                        <TextBlock x:Name="ProgressText" 
+                            <TextBlock x:Name="ProgressText" 
                                  Text="Processing..." 
                                  HorizontalAlignment="Center"
                                  FontSize="18"
                                  FontWeight="Bold"
                                  Foreground="{StaticResource TextPrimaryBrush}"
                                  Margin="0,0,0,12"/>
-                        <TextBlock x:Name="ProgressSubText" 
+                            <TextBlock x:Name="ProgressSubText" 
                                  Text="Creating database request..." 
                                  HorizontalAlignment="Center"
                                  FontSize="14"
@@ -954,17 +967,23 @@
                                  TextAlignment="Center"
                                  MaxWidth="300"/>
 
-                        <!-- Progress Bar -->
-                        <ProgressBar x:Name="MainProgressBar"
+                            <!-- Progress Bar -->
+                            <ProgressBar x:Name="MainProgressBar"
                                    Value="0" 
                                    Height="6" 
                                    Width="300"
                                    Margin="0,20,0,0"
                                    Background="{StaticResource BorderBrush}"
                                    Foreground="{StaticResource PrimaryBrush}"/>
-                    </StackPanel>
-                </Border>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </Grid>
+
+            <Frame x:Name="MainContentFrame"
+                   NavigationUIVisibility="Hidden"
+                   Visibility="Collapsed"/>
         </Grid>
     </Grid>
 </Window>
+

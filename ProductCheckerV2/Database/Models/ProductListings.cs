@@ -17,7 +17,7 @@ namespace ProductCheckerV2.Database.Models
 
         [Column("listing_id")]
         [MaxLength(255)]
-        public string ListingId { get; set; }
+        public string? ListingId { get; set; }
 
         [Column("case_number")]
         [MaxLength(100)]
@@ -25,25 +25,25 @@ namespace ProductCheckerV2.Database.Models
 
         [Column("platform")]
         [MaxLength(50)]
-        public string Platform { get; set; }
+        public string? Platform { get; set; }
 
         [Column("url")]
         [MaxLength(2000)]
-        public string Url { get; set; }
+        public string? Url { get; set; }
 
         [Column("status")]
         [MaxLength(50)]
-        public string UrlStatus { get; set; }
+        public string? UrlStatus { get; set; }
 
         [Column("checked_date")]
         [MaxLength(50)]
-        public string CheckedDate { get; set; }
+        public string? CheckedDate { get; set; }
 
         [Column("error_detail")]
-        public string ErrorDetail { get; set; }
+        public string? ErrorDetail { get; set; }
 
         [Column("note")]
-        public string Note { get; set; }
+        public string? Note { get; set; }
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.Now;

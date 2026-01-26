@@ -22,7 +22,7 @@ using System.Windows.Media.Effects;
 
 namespace ProductCheckerV2
 {
-    public partial class ViewRequestsWindow : Window
+    public partial class ViewRequestsPage : Page
     {
         private List<RequestViewModel> _allRequests = new List<RequestViewModel>();
         private ICollectionView _requestsView;
@@ -33,18 +33,24 @@ namespace ProductCheckerV2
         private bool _rescanOnlyErrors = false;
         private string _selectedExportPath = "";
 
-        public ViewRequestsWindow()
+        public ViewRequestsPage()
         {
             InitializeComponent();
-            Loaded += ViewRequestsWindow_Loaded;
+            Loaded += ViewRequestsPage_Loaded;
+            Unloaded += ViewRequestsPage_Unloaded;
         }
 
-        private void ViewRequestsWindow_Loaded(object sender, RoutedEventArgs e)
+        private void ViewRequestsPage_Loaded(object sender, RoutedEventArgs e)
         {
-            LogoImage.Source = new BitmapImage(new Uri("Assets/Logo.ico".AbsPath()));
             InitializeAutoRefresh();
             LoadRequests();
         }
+
+        private void ViewRequestsPage_Unloaded(object sender, RoutedEventArgs e)
+        {
+            StopAutoRefresh();
+        }
+
 
         private void InitializeAutoRefresh()
         {
@@ -87,7 +93,7 @@ namespace ProductCheckerV2
         {
             try
             {
-                using var context = new ProductCheckerDbContext();
+                using var context = new ProductCheckerV2DbContext();
 
                 var requests = await context.Requests
                     .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null)
@@ -183,7 +189,7 @@ namespace ProductCheckerV2
         {
             try
             {
-                using var context = new ProductCheckerDbContext();
+                using var context = new ProductCheckerV2DbContext();
 
                 var requests = context.Requests
                     .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null)
@@ -203,6 +209,8 @@ namespace ProductCheckerV2
 
                 _allRequests.Clear();
 
+                int pendingRequests = 0;
+
                 foreach (var r in requests)
                 {
                     int listingsCount = 0;
@@ -210,6 +218,11 @@ namespace ProductCheckerV2
                     {
                         listingsCount = context.ProductListings
                             .Count(l => l.RequestInfoId == r.RequestInfoId);
+                    }
+
+                    if (r.Status == RequestStatus.PENDING)
+                    {
+                        pendingRequests++;
                     }
 
                     var requestVM = new RequestViewModel
@@ -233,9 +246,7 @@ namespace ProductCheckerV2
                 _requestsView.Filter = RequestFilter;
 
                 RequestsListBox.ItemsSource = _requestsView;
-
-                var filteredCount = _allRequests.Count(r => RequestFilter(r));
-                RequestCountText.Text = $"({filteredCount} requests)";
+                RequestCountText.Text = $"({pendingRequests} pending)";
 
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -272,7 +283,7 @@ namespace ProductCheckerV2
         {
             try
             {
-                using var context = new ProductCheckerDbContext();
+                using var context = new ProductCheckerV2DbContext();
 
                 // Get the RequestInfoId for this request
                 var request = context.Requests
@@ -284,6 +295,7 @@ namespace ProductCheckerV2
                 {
                     ListingsDataGrid.ItemsSource = null;
                     ListingCountText.Text = "0 listings";
+                    UpdateListingProgress(null);
                     return;
                 }
 
@@ -327,7 +339,6 @@ namespace ProductCheckerV2
                             Url = SafeGetString(reader, 3),
                             UrlStatus = SafeGetString(reader, 4),
                             CheckedDate = SafeGetString(reader, 5),
-                            ErrorDetail = SafeGetString(reader, 6),
                             Notes = SafeGetString(reader, 7)
                         });
                     }
@@ -336,6 +347,7 @@ namespace ProductCheckerV2
 
                     ListingsDataGrid.ItemsSource = listings;
                     ListingCountText.Text = $"{listings.Count} listings";
+                    UpdateListingProgress(listings);
                 }
                 finally
                 {
@@ -352,6 +364,7 @@ namespace ProductCheckerV2
                 }
                 ListingsDataGrid.ItemsSource = null;
                 ListingCountText.Text = "Error loading listings";
+                UpdateListingProgress(null);
             }
         }
 
@@ -361,6 +374,49 @@ namespace ProductCheckerV2
                 return string.Empty;
 
             return reader.GetString(columnIndex);
+        }
+
+        private void UpdateListingProgress(IReadOnlyCollection<ListingViewModel> listings)
+        {
+            int total = listings?.Count ?? 0;
+            int processed = 0;
+
+            if (listings != null)
+            {
+                processed = listings.Count(IsListingProcessed);
+                if (processed > total)
+                {
+                    processed = total;
+                }
+            }
+
+            ListingProgressBar.Maximum = Math.Max(1, total);
+            ListingProgressBar.Value = processed;
+            ListingProgressText.Text = $"{processed}/{total}";
+            if (processed == total)
+            {
+                ProgressName.Text = "Completed:";
+            }
+            else
+            {
+                ProgressName.Text = "Progress:";
+            }
+        }
+
+        private static bool IsListingProcessed(ListingViewModel listing)
+        {
+            if (listing == null)
+            {
+                return false;
+            }
+
+            var status = listing.UrlStatus;
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                return false;
+            }
+
+            return !status.Equals("PENDING", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool CheckForChanges(List<RequestViewModel> newRequests)
@@ -395,7 +451,6 @@ namespace ProductCheckerV2
 
         private void UpdateRequestsList(List<RequestViewModel> newRequests)
         {
-            // Update existing requests
             foreach (var existingRequest in _allRequests.ToList())
             {
                 var updatedRequest = newRequests.FirstOrDefault(r => r.Id == existingRequest.Id);
@@ -408,7 +463,7 @@ namespace ProductCheckerV2
                 }
             }
 
-            // Add new requests
+            var pendingRequests = 0;
             var newRequestIds = newRequests.Select(r => r.Id).Except(_allRequests.Select(r => r.Id));
             foreach (var newId in newRequestIds)
             {
@@ -424,15 +479,16 @@ namespace ProductCheckerV2
                     ListingsCount = request.ListingsCount,
                     StatusBrush = GetStatusBrush(request.Status)
                 };
+
+                if (request.Status == RequestStatus.PENDING)
+                {
+                    pendingRequests++;
+                }
                 _allRequests.Add(requestVM);
             }
 
-            // Sort by ID descending
             _allRequests = _allRequests.OrderByDescending(r => r.Id).ToList();
-
-            // Update count
-            var filteredCount = _allRequests.Count(r => RequestFilter(r));
-            RequestCountText.Text = $"({filteredCount} requests)";
+            RequestCountText.Text = $"({pendingRequests} pending)";
         }
 
         private bool IsFinalStatus(RequestStatus status)
@@ -528,6 +584,7 @@ namespace ProductCheckerV2
                 SelectedRequestInfo.Text = "Select a request to view listings";
                 SelectedRequestStatus.Text = "No request selected";
                 ListingCountText.Text = "0 listings";
+                UpdateListingProgress(null);
                 ExportButton.Background = new SolidColorBrush(Color.FromRgb(102, 187, 106));
                 ExportButton.IsEnabled = false;
                 RescanButton.Visibility = Visibility.Collapsed;
@@ -536,8 +593,8 @@ namespace ProductCheckerV2
             }
 
             SelectedRequestTitle.Text = request.FileName;
-            SelectedRequestInfo.Text = $"ID: {request.Id} • User: {request.User} • Created: {request.CreatedAt:yyyy-MM-dd HH:mm}";
-            SelectedRequestStatus.Text = $"Status: {request.Status} • {request.ListingsCount} listings";
+            SelectedRequestInfo.Text = $"RID: {request.Id} • User: {request.User} • Created: {request.CreatedAt:yyyy MMM d, h:mm tt}";
+            SelectedRequestStatus.Text = $"Status: {request.Status}";
 
             if (IsExportAllowed(request.Status))
             {
@@ -570,6 +627,7 @@ namespace ProductCheckerV2
         {
             ListingsDataGrid.ItemsSource = null;
             ListingCountText.Text = "0 listings";
+            UpdateListingProgress(null);
         }
 
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -716,7 +774,7 @@ namespace ProductCheckerV2
 
             try
             {
-                using var context = new ProductCheckerDbContext();
+                using var context = new ProductCheckerV2DbContext();
 
                 var rescanRequest = new Requests
                 {
@@ -725,6 +783,29 @@ namespace ProductCheckerV2
                     RescanInfoId = _rescanOnlyErrors ? 1 : 0,
                     CreatedAt = DateTime.Now
                 };
+
+                IQueryable<ProductListings> listingsQuery = context.ProductListings
+                    .Where(l => l.RequestInfoId == _selectedRequest.RequestInfoId);
+
+                var listings = listingsQuery.ToList();
+
+                if (_rescanOnlyErrors)
+                {
+                    listings = listings
+                        .Where(l =>
+                            !string.IsNullOrWhiteSpace(l.UrlStatus) &&
+                            !l.UrlStatus.Equals("Available", StringComparison.OrdinalIgnoreCase) &&
+                            !l.UrlStatus.Equals("Not Available", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
+
+                foreach (var listing in listings)
+                {
+                    listing.UrlStatus = null;
+                    listing.CheckedDate = null;
+                    listing.ErrorDetail = null;
+                    listing.Note = null;
+                }
 
                 context.Requests.Add(rescanRequest);
 
@@ -737,7 +818,7 @@ namespace ProductCheckerV2
                 context.SaveChanges();
 
                 // Show success message
-                ShowSuccessMessage($"Rescan request #{rescanRequest.Id} created successfully.", "Rescan Queued");
+                ShowSuccessMessage($"Successfully queued for rescan.", "Rescan Queued");
                 LoadRequests();
             }
             catch (Exception ex)
@@ -829,7 +910,7 @@ namespace ProductCheckerV2
                 ExportToExcel(_selectedRequest.Id, _selectedExportPath);
 
                 // Show success message
-                ShowSuccessMessage($"Listings exported successfully to:\n{_selectedExportPath}", "Export Complete");
+                ShowSuccessMessage($"Listings exported successfully.", "Export Complete");
             }
             catch (Exception ex)
             {
@@ -841,7 +922,7 @@ namespace ProductCheckerV2
         {
             try
             {
-                using var context = new ProductCheckerDbContext();
+                using var context = new ProductCheckerV2DbContext();
 
                 // First get the RequestInfoId for this request
                 var request = context.Requests
@@ -871,7 +952,6 @@ namespace ProductCheckerV2
                     url, 
                     status, 
                     checked_date, 
-                    error_detail, 
                     note 
                 FROM product_checker_listings 
                 WHERE request_info_id = @requestInfoId 
@@ -895,8 +975,7 @@ namespace ProductCheckerV2
                             Url = SafeGetString(reader, 3),
                             UrlStatus = SafeGetString(reader, 4),
                             CheckedDate = SafeGetString(reader, 5),
-                            ErrorDetail = SafeGetString(reader, 6),
-                            Notes = SafeGetString(reader, 7)
+                            Notes = SafeGetString(reader, 6)
                         });
                     }
 
@@ -915,8 +994,7 @@ namespace ProductCheckerV2
                     worksheet.Cell(1, 4).Value = "Product URL";
                     worksheet.Cell(1, 5).Value = "URL Status";
                     worksheet.Cell(1, 6).Value = "Checked Date";
-                    worksheet.Cell(1, 7).Value = "Error, If any";
-                    worksheet.Cell(1, 8).Value = "Notes";
+                    worksheet.Cell(1, 7).Value = "Notes";
 
                     // Add listing data
                     int row = 2;
@@ -928,8 +1006,7 @@ namespace ProductCheckerV2
                         worksheet.Cell(row, 4).Value = listing.Url;
                         worksheet.Cell(row, 5).Value = listing.UrlStatus;
                         worksheet.Cell(row, 6).Value = listing.CheckedDate;
-                        worksheet.Cell(row, 7).Value = listing.ErrorDetail;
-                        worksheet.Cell(row, 8).Value = listing.Notes;
+                        worksheet.Cell(row, 7).Value = listing.Notes;
                         row++;
                     }
 
@@ -956,84 +1033,144 @@ namespace ProductCheckerV2
 
         private void ShowSuccessMessage(string message, string title)
         {
-            // Create a custom message box window
+            var ownerWindow = Window.GetWindow(this);
             var messageBox = new Window
             {
                 Title = title,
-                Width = 450,
+                Width = 420,
                 SizeToContent = SizeToContent.Height,
                 ResizeMode = ResizeMode.NoResize,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
-                WindowStyle = WindowStyle.ToolWindow,
-                Background = new SolidColorBrush(Colors.White),
+                WindowStartupLocation = ownerWindow != null ? WindowStartupLocation.CenterOwner : WindowStartupLocation.CenterScreen,
+                Owner = ownerWindow,
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                Background = Brushes.Transparent,
+                ShowInTaskbar = false
+            };
+
+            var chromeBorder = new Border
+            {
+                Background = Brushes.White,
                 BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
-                BorderThickness = new Thickness(1)
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(12),
+                Padding = new Thickness(20),
+                Effect = new DropShadowEffect
+                {
+                    BlurRadius = 18,
+                    ShadowDepth = 0,
+                    Opacity = 0.18,
+                    Color = Colors.Black
+                }
             };
 
-            var contentPanel = new StackPanel
-            {
-                Margin = new Thickness(20)
-            };
+            var rootGrid = new Grid();
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            // Header
-            var headerPanel = new StackPanel
+            var headerGrid = new Grid
             {
-                Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 0, 0, 15)
+                Background = new SolidColorBrush(Color.FromRgb(236, 253, 245)),
+                Margin = new Thickness(-20, -20, -20, 15)
             };
-            headerPanel.Children.Add(new TextBlock
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            headerGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var iconBadge = new Border
             {
-                Text = "✅",
-                FontSize = 24,
-                Margin = new Thickness(0, 0, 10, 0)
-            });
-            headerPanel.Children.Add(new TextBlock
+                Width = 36,
+                Height = 36,
+                CornerRadius = new CornerRadius(18),
+                Background = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
+                Margin = new Thickness(16, 12, 12, 12),
+                Child = new TextBlock
+                {
+                    Text = "✓",
+                    FontSize = 18,
+                    FontWeight = FontWeights.Bold,
+                    Foreground = Brushes.White,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center
+                }
+            };
+            Grid.SetColumn(iconBadge, 0);
+            headerGrid.Children.Add(iconBadge);
+
+            var titleBlock = new TextBlock
             {
                 Text = title,
                 FontSize = 16,
                 FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(Color.FromRgb(102, 187, 106))
-            });
-            contentPanel.Children.Add(headerPanel);
+                Foreground = new SolidColorBrush(Color.FromRgb(16, 185, 129)),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, 0)
+            };
+            Grid.SetColumn(titleBlock, 1);
+            headerGrid.Children.Add(titleBlock);
 
-            // Message
-            contentPanel.Children.Add(new TextBlock
+            var closeButton = new Button
             {
-                Text = message,
-                FontSize = 14,
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 0, 0, 20)
-            });
-
-            // OK Button
-            var okButton = new Button
-            {
-                Content = "OK",
-                Width = 80,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                Background = new SolidColorBrush(Color.FromRgb(102, 187, 106)),
-                Foreground = Brushes.White,
+                Content = "✕",
+                Width = 28,
+                Height = 28,
+                Margin = new Thickness(0, 10, 10, 10),
+                Background = Brushes.Transparent,
+                Foreground = new SolidColorBrush(Color.FromRgb(100, 116, 139)),
+                BorderThickness = new Thickness(0),
                 Cursor = System.Windows.Input.Cursors.Hand
             };
-            okButton.Click += (s, e) => { messageBox.Close(); };
-            contentPanel.Children.Add(okButton);
+            closeButton.Click += (s, e) => messageBox.Close();
+            Grid.SetColumn(closeButton, 2);
+            headerGrid.Children.Add(closeButton);
 
-            messageBox.Content = contentPanel;
-            messageBox.ShowDialog();
+            rootGrid.Children.Add(headerGrid);
+
+            var bodyPanel = new StackPanel
+            {
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            bodyPanel.Children.Add(new TextBlock
+            {
+                Text = message,
+                FontSize = 14.5,
+                Foreground = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 5)
+            });
+            Grid.SetRow(bodyPanel, 1);
+            rootGrid.Children.Add(bodyPanel);
+
+            chromeBorder.Child = rootGrid;
+            messageBox.Content = chromeBorder;
+
+            var closeTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(1500)
+            };
+            closeTimer.Tick += (s, e) =>
+            {
+                closeTimer.Stop();
+                messageBox.Close();
+            };
+
+            messageBox.Loaded += (s, e) => closeTimer.Start();
+            messageBox.Show();
         }
 
         private void ShowErrorMessage(string message, string title)
         {
             // Create a custom message box window
+            var ownerWindow = Window.GetWindow(this);
             var messageBox = new Window
             {
                 Title = title,
                 Width = 450,
                 SizeToContent = SizeToContent.Height,
                 ResizeMode = ResizeMode.NoResize,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
+                WindowStartupLocation = ownerWindow != null ? WindowStartupLocation.CenterOwner : WindowStartupLocation.CenterScreen,
+                Owner = ownerWindow,
                 WindowStyle = WindowStyle.ToolWindow,
                 Background = new SolidColorBrush(Colors.White),
                 BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
@@ -1071,6 +1208,7 @@ namespace ProductCheckerV2
             {
                 Text = message,
                 FontSize = 14,
+                TextAlignment = TextAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(0, 0, 0, 20)
             });
@@ -1092,7 +1230,7 @@ namespace ProductCheckerV2
             messageBox.ShowDialog();
         }
 
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void StopAutoRefresh()
         {
             // Stop the auto-refresh timer when window is closing
             if (_autoRefreshTimer != null)
@@ -1112,7 +1250,6 @@ namespace ProductCheckerV2
             public string Url { get; set; }
             public string UrlStatus { get; set; }
             public string CheckedDate { get; set; }
-            public string ErrorDetail { get; set; }
             public string Notes { get; set; }
         }
     }
@@ -1138,7 +1275,6 @@ namespace ProductCheckerV2
         public string Url { get; set; }
         public string UrlStatus { get; set; }
         public string CheckedDate { get; set; }
-        public string ErrorDetail { get; set; }
         public string Notes { get; set; }
     }
 }

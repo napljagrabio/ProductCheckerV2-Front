@@ -1,44 +1,31 @@
-﻿using Microsoft.EntityFrameworkCore;
-using ProductCheckerV2.Database.Models;
+﻿using ProductCheckerV2.Database.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace ProductCheckerV2.Database
 {
-    public class ProductCheckerDbContext : DbContext
+    internal class ProductCheckerDbContext : DbContext
     {
-        public DbSet<Requests> Requests { get; set; }
-        public DbSet<RequestInfos> RequestInfos { get; set; }
-        public DbSet<ProductListings> ProductListings { get; set; }
+        public DbSet<Platform> Platforms { get; set; }
+        public DbSet<Port> Ports { get; set; }
+        public DbSet<ApiEndpoint> ApiEndpoints { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
             {
-                var connectionString = Common.ConfigurationManager.GetConnectionString();
+                var connectionString = Common.ConfigurationManager.GetConnectionString("ProductCheckerDbContext");
 
                 optionsBuilder.UseMySql(connectionString,
                     ServerVersion.AutoDetect(connectionString));
             }
-        }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            base.OnModelCreating(modelBuilder);
-
-            modelBuilder.Entity<Requests>()
-                .Property(r => r.Status)
-                .HasConversion<string>();
-
-            modelBuilder.Entity<Requests>()
-                .HasOne(r => r.RequestInfo)
-                .WithMany(ri => ri.Requests)
-                .HasForeignKey(r => r.RequestInfoId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<ProductListings>()
-                .HasOne(p => p.RequestInfo)
-                .WithMany()
-                .HasForeignKey(p => p.RequestInfoId)
-                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
