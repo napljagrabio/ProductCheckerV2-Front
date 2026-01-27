@@ -108,7 +108,8 @@ namespace ProductCheckerV2
                         RequestInfo = r.RequestInfo != null ? new
                         {
                             r.RequestInfo.User,
-                            r.RequestInfo.FileName
+                            r.RequestInfo.FileName,
+                            r.RequestInfo.Environment
                         } : null
                     })
                     .ToListAsync();
@@ -130,11 +131,13 @@ namespace ProductCheckerV2
                         RequestInfoId = r.RequestInfoId,
                         User = r.RequestInfo?.User ?? "Unknown",
                         FileName = r.RequestInfo?.FileName ?? "Unknown",
+                        Environment = NormalizeEnvironment(r.RequestInfo?.Environment),
                         Status = r.Status,
                         CreatedAt = r.CreatedAt,
                         ListingsCount = listingsCount,
                         Priority = r.Priority,
-                        IsHighPriority = r.Priority == 1
+                        IsHighPriority = r.Priority == 1,
+                        EnvironmentBrush = GetEnvironmentBrush(r.RequestInfo?.Environment)
                     });
                 }
 
@@ -162,6 +165,8 @@ namespace ProductCheckerV2
                         _selectedRequest.StatusBrush = GetStatusBrush(_selectedRequest.Status);
                         _selectedRequest.Priority = selectedRequestInDb.Priority;
                         _selectedRequest.IsHighPriority = selectedRequestInDb.Priority == 1;
+                        _selectedRequest.Environment = selectedRequestInDb.Environment;
+                        _selectedRequest.EnvironmentBrush = GetEnvironmentBrush(selectedRequestInDb.Environment);
 
                         // Update UI for selected request
                         UpdateSelectedRequestDisplay(_selectedRequest);
@@ -223,7 +228,8 @@ namespace ProductCheckerV2
                         RequestInfo = r.RequestInfo != null ? new
                         {
                             r.RequestInfo.User,
-                            r.RequestInfo.FileName
+                            r.RequestInfo.FileName,
+                            r.RequestInfo.Environment
                         } : null
                     })
                     .ToList();
@@ -252,11 +258,13 @@ namespace ProductCheckerV2
                         RequestInfoId = r.RequestInfoId,
                         User = r.RequestInfo?.User ?? "Unknown",
                         FileName = r.RequestInfo?.FileName ?? "Unknown",
+                        Environment = NormalizeEnvironment(r.RequestInfo?.Environment),
                         Status = r.Status,
                         CreatedAt = r.CreatedAt,
                         ListingsCount = listingsCount,
                         Priority = r.Priority,
-                        IsHighPriority = r.Priority == 1
+                        IsHighPriority = r.Priority == 1,
+                        EnvironmentBrush = GetEnvironmentBrush(r.RequestInfo?.Environment)
                     };
 
                     requestVM.StatusBrush = GetStatusBrush(requestVM.Status);
@@ -466,7 +474,8 @@ namespace ProductCheckerV2
 
                 if (oldRequest.Status != newRequest.Status ||
                     oldRequest.ListingsCount != newRequest.ListingsCount ||
-                    oldRequest.Priority != newRequest.Priority)
+                    oldRequest.Priority != newRequest.Priority ||
+                    !string.Equals(oldRequest.Environment, newRequest.Environment, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -495,6 +504,8 @@ namespace ProductCheckerV2
                     existingRequest.RequestInfoId = updatedRequest.RequestInfoId;
                     existingRequest.Priority = updatedRequest.Priority;
                     existingRequest.IsHighPriority = updatedRequest.IsHighPriority;
+                    existingRequest.Environment = updatedRequest.Environment;
+                    existingRequest.EnvironmentBrush = GetEnvironmentBrush(updatedRequest.Environment);
                 }
             }
 
@@ -509,12 +520,14 @@ namespace ProductCheckerV2
                     RequestInfoId = request.RequestInfoId,
                     User = request.User,
                     FileName = request.FileName,
+                    Environment = NormalizeEnvironment(request.Environment),
                     Status = request.Status,
                     CreatedAt = request.CreatedAt,
                     ListingsCount = request.ListingsCount,
                     StatusBrush = GetStatusBrush(request.Status),
                     Priority = request.Priority,
-                    IsHighPriority = request.Priority == 1
+                    IsHighPriority = request.Priority == 1,
+                    EnvironmentBrush = GetEnvironmentBrush(request.Environment)
                 };
 
                 if (request.Status == RequestStatus.PENDING)
@@ -559,7 +572,8 @@ namespace ProductCheckerV2
                     request.Id.ToString().Contains(searchText) ||
                     request.User.ToLower().Contains(searchText) ||
                     request.FileName.ToLower().Contains(searchText) ||
-                    request.Status.ToString().ToLower().Contains(searchText);
+                    request.Status.ToString().ToLower().Contains(searchText) ||
+                    request.Environment.ToLower().Contains(searchText);
 
                 var listingMatch = request.HasListingMatch && request.MatchCount > 0;
                 return requestMatch || listingMatch;
@@ -579,6 +593,25 @@ namespace ProductCheckerV2
                 RequestStatus.COMPLETED_WITH_ISSUES => new SolidColorBrush(Color.FromRgb(255, 214, 170)),
                 _ => new SolidColorBrush(Colors.Gray)
             };
+        }
+
+        private static string NormalizeEnvironment(string? environment)
+        {
+            if (!string.IsNullOrWhiteSpace(environment) &&
+                environment.Equals("Live", StringComparison.OrdinalIgnoreCase))
+            {
+                return "Live";
+            }
+
+            return "Stage";
+        }
+
+        private static SolidColorBrush GetEnvironmentBrush(string? environment)
+        {
+            var normalizedEnvironment = NormalizeEnvironment(environment);
+            return normalizedEnvironment == "Live"
+                ? new SolidColorBrush(Color.FromRgb(16, 185, 129))
+                : new SolidColorBrush(Color.FromRgb(245, 158, 11));
         }
 
         private SolidColorBrush CreateBlinkingBrush(Color baseColor)
@@ -1419,10 +1452,12 @@ namespace ProductCheckerV2
         public int RequestInfoId { get; set; }
         public string User { get; set; }
         public string FileName { get; set; }
+        public string Environment { get; set; } = "Stage";
         public RequestStatus Status { get; set; }
         public DateTime CreatedAt { get; set; }
         public int ListingsCount { get; set; }
         public SolidColorBrush StatusBrush { get; set; }
+        public SolidColorBrush EnvironmentBrush { get; set; } = new SolidColorBrush(Color.FromRgb(245, 158, 11));
         public int Priority { get; set; }
         public bool IsHighPriority { get; set; }
         private int _matchCount;

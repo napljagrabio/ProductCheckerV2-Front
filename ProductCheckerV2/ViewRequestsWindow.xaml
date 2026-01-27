@@ -730,27 +730,27 @@
                                                     Grid.Column="0"
                                                     Orientation="Horizontal"
                                                     VerticalAlignment="Center">
+                                            <Border Background="{Binding EnvironmentBrush}"
+                                                    CornerRadius="10"
+                                                    Padding="8,2"
+                                                    Margin="0,0,8,0"
+                                                    ToolTip="{Binding Environment}">
+                                                <TextBlock Text="{Binding Environment}"
+                                                           FontSize="10.5"
+                                                           Margin="0,2,0,2"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="White"/>
+                                            </Border>
                                             <TextBlock Text="RID:"
-                                                       FontSize="11.5"
+                                                       FontSize="13.5"
+                                                       Margin="0,2,0,0"
                                                        FontWeight="SemiBold"
                                                        Foreground="#94A3B8"/>
                                             <TextBlock Text="{Binding RequestInfoId}"
-                                                       FontSize="11.5"
+                                                       FontSize="13.5"
                                                        FontWeight="SemiBold"
                                                        Foreground="#4361ee"
-                                                       Margin="6,0,0,0"/>
-                                            <TextBlock Text="•"
-                                                       FontSize="11.5"
-                                                       Foreground="#94A3B8"
-                                                       Margin="5,0,5,0"/>
-                                            <TextBlock Text="{Binding ListingsCount}"
-                                                       FontSize="11.5"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#4361ee"/>
-                                            <TextBlock Text=" listings"
-                                                       FontSize="11.5"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#94A3B8"/>
+                                                       Margin="6,2,0,0"/>
                                         </StackPanel>
 
                                         <!-- Top Row Right: Priority + Status Dot -->
@@ -763,7 +763,7 @@
                                                        FontSize="16"
                                                        Margin="0,0,8,0"
                                                        Visibility="{Binding IsHighPriority, Converter={StaticResource BoolToVisibilityConverter}}"
-                                                       ToolTip="Highest priority"/>
+                                                       ToolTip="High priority"/>
                                             <Ellipse Width="16"
                                                      Height="16"
                                                      Fill="{Binding StatusBrush}"
@@ -788,21 +788,36 @@
                                                     Grid.Column="0"
                                                     Margin="0,6,10,0">
                                             <TextBlock Text="{Binding User}"
-                                                       FontSize="13"
+                                                       FontSize="12"
                                                        FontWeight="SemiBold"
                                                        Foreground="#2563EB"/>
+                                            
+                                            <StackPanel
+                                                    Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding ListingsCount}"
+                                                           FontSize="11.5"
+                                                           Margin="0,2,0,0"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#4361ee"/>
+                                                <TextBlock Text=" listings"
+                                                           FontSize="11.5"
+                                                           Margin="0,2,0,0"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="#94A3B8"/>
+                                            </StackPanel>
                                             <TextBlock Text="{Binding CreatedAt, StringFormat='yyyy MMM d, h:mm tt'}"
-                                                       FontSize="10.5"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="#94A3B8"
-                                                       Margin="0,2,0,0"/>
+                                                        FontSize="11.5"
+                                                        FontWeight="SemiBold"
+                                                        Foreground="#94A3B8"
+                                                        Margin="0,2,0,0"/>
                                         </StackPanel>
 
                                         <!-- Bottom Row Right: Match Badge -->
                                         <StackPanel Grid.Row="2" Grid.ColumnSpan="2" HorizontalAlignment="Right" VerticalAlignment="Center">
                                             <Border
                                                     Margin="0,6,0,0"
-                                                    Padding="14,6"
+                                                    Padding="10,6"
                                                     CornerRadius="16"
                                                     Background="#E0F2FE"
                                                     BorderBrush="#0EA5E9"
@@ -810,7 +825,7 @@
                                                     Visibility="{Binding HasListingMatch, Converter={StaticResource BoolToVisibilityConverter}}"
                                                     ToolTip="Matching product listings">
                                                 <TextBlock Foreground="#0284C7"
-                                                           FontSize="12.5"
+                                                           FontSize="9.5"
                                                            FontWeight="SemiBold"
                                                            Text="{Binding MatchCount, StringFormat={}{0} matches}"/>
                                             </Border>

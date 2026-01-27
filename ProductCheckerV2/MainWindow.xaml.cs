@@ -58,7 +58,7 @@ namespace ProductCheckerV2
             SetupDragDrop();
         }
 
-                private void InitializeApp()
+        private void InitializeApp()
         {
             try
             {
@@ -324,7 +324,7 @@ namespace ProductCheckerV2
                 CaseListBox.ItemsSource = _caseOptions;
                 PlatformListBox.ItemsSource = _platformOptions;
                 QflagListBox.ItemsSource = _qflagOptions;
-                SelectedFiltersListBox.ItemsSource = _selectedFilters;
+                SelectedFiltersContainer.ItemsSource = _selectedFilters;
 
                 _campaignsView = CollectionViewSource.GetDefaultView(_campaignOptions);
                 _campaignsView.Filter = item => FilterOptionMatches(item, CampaignSearchTextBox.Text);
@@ -404,6 +404,7 @@ namespace ProductCheckerV2
         {
             UpdateSelectionSummary();
             RefreshFilterViews();
+            UpdateSelectedFiltersList();
         }
 
         private void ModeRadio_Checked(object sender, RoutedEventArgs e)
@@ -436,6 +437,7 @@ namespace ProductCheckerV2
                 item.Option.IsSelected = false;
                 UpdateSelectionSummary();
                 RefreshFilterViews();
+                UpdateSelectedFiltersList();
             }
         }
 
@@ -605,7 +607,7 @@ namespace ProductCheckerV2
                 {
                     Category = category,
                     Option = option,
-                    Display = $"{category}: {option.Display}"
+                    Display = option.Display
                 });
             }
         }
@@ -623,6 +625,7 @@ namespace ProductCheckerV2
             QflagSearchTextBox.Text = string.Empty;
 
             RefreshFilterViews();
+            UpdateSelectedFiltersList();
         }
 
         private static void ClearSelectionList(List<FilterOption> options)
@@ -723,9 +726,9 @@ namespace ProductCheckerV2
         {
             await LoadPreviewListingsAsync();
         }
+
         private async void BrowseButton_Click(object sender, RoutedEventArgs e)
         {
-            // Ensure the browse button opens the file picker.
             UploadBrowseButton_Click(sender, e);
         }
 
@@ -747,13 +750,10 @@ namespace ProductCheckerV2
             }
         }
 
-        
-
         private async Task ValidateAndLoadFileAsync(string filePath)
         {
             try
             {
-                // Validate file size (max 10MB)
                 var fileInfo = new FileInfo(filePath);
                 long maxSize = 10 * 1024 * 1024;
 
@@ -764,7 +764,6 @@ namespace ProductCheckerV2
                     return;
                 }
 
-                // Validate extension
                 var validExtensions = new[] { ".xlsx", ".xls", ".xlsm" };
                 if (!validExtensions.Contains(fileInfo.Extension.ToLower()))
                 {
@@ -794,8 +793,6 @@ namespace ProductCheckerV2
                 }
                 UpdateStatusBar($"Loading file: {Path.GetFileName(filePath)}...");
 
-                // Read Excel data
-                await Task.Yield();
                 var data = await Task.Run(() => ReadExcelData(filePath));
                 _uploadedData = data;
 
@@ -891,7 +888,6 @@ namespace ProductCheckerV2
 
             if (!rows.Any()) return data;
 
-            // Check if first row is header
             bool firstRowIsHeader = false;
             var firstRow = rows.First();
 
@@ -913,12 +909,10 @@ namespace ProductCheckerV2
 
                 try
                 {
-                    // Use GetFormattedString() which handles all data types
                     var listingId = row.Cell(1).GetFormattedString().Trim();
                     var caseNumber = row.Cell(2).GetFormattedString().Trim();
                     var url = row.Cell(3).GetFormattedString().Trim();
 
-                    // Skip if all empty
                     if (string.IsNullOrWhiteSpace(listingId) &&
                         string.IsNullOrWhiteSpace(caseNumber) &&
                         string.IsNullOrWhiteSpace(url))
@@ -1213,11 +1207,6 @@ namespace ProductCheckerV2
 
         private void ShowConfirmProcessingModal()
         {
-            //ModalRecordCount.Text = $"{_uploadedData.Count} records";
-            //ModalFileName.Text = string.IsNullOrEmpty(_currentFilePath) || FilePathText.Text == "No file selected" ?
-            //    "Unknown file" : Path.GetFileName(_currentFilePath);
-            //ModalUserName.Text = Environment.UserName ?? "SystemUser";
-
             ShowModal(ConfirmProcessingModal);
         }
 
@@ -1237,7 +1226,6 @@ namespace ProductCheckerV2
             ModalOverlay.Visibility = Visibility.Visible;
             modal.Visibility = Visibility.Visible;
 
-            // Animate modal entrance
             var animation = new DoubleAnimation
             {
                 From = 0.8,
@@ -1341,11 +1329,9 @@ namespace ProductCheckerV2
 
             try
             {
-                // Store the current progress message
                 string currentMessage = "Connecting to database...";
                 _processingWorker.ReportProgress(10, currentMessage);
 
-                // Get file name
                 string fileName;
                 if (!string.IsNullOrWhiteSpace(_customFileName))
                 {
@@ -1362,7 +1348,6 @@ namespace ProductCheckerV2
 
                 using var context = new ProductCheckerDbContext();
 
-                // Create new requestInfo
                 var requestInfo = new RequestInfo
                 {
                     User = Environment.UserName ?? "SystemUser",
@@ -1371,11 +1356,9 @@ namespace ProductCheckerV2
                     CreatedAt = DateTime.Now
                 };
 
-                // Add and save to get ID
                 context.RequestInfos.Add(requestInfo);
                 context.SaveChanges();
 
-                // Create new request
                 var request = new Request
                 {
                     RequestInfoId = requestInfo.Id,
@@ -1395,7 +1378,6 @@ namespace ProductCheckerV2
                 currentMessage = $"Request #{request.Id} created. Adding product listings...";
                 _processingWorker.ReportProgress(50, currentMessage);
 
-                // Insert listings
                 int totalRecords = data.Count;
                 int processedRecords = 0;
                 int batchSize = 100;
@@ -1454,7 +1436,6 @@ namespace ProductCheckerV2
                 {
                     ProgressText.Text = message;
 
-                    // Update subtext based on progress
                     if (e.ProgressPercentage < 30)
                     {
                         ProgressSubText.Text = "Establishing database connection...";
@@ -1517,7 +1498,7 @@ namespace ProductCheckerV2
             ShowModal(ErrorModal);
         }
 
-                        private void UpdateStatusBar(string message)
+        private void UpdateStatusBar(string message)
         {
             var environment = ConfigurationManager.GetEnvironment();
             this.Title = $"{_applicationName} - {message} ({environment})";
@@ -1625,7 +1606,7 @@ namespace ProductCheckerV2
             public string ErrorMessage { get; set; }
         }
 
-        private class FilterOption : INotifyPropertyChanged
+        public class FilterOption : INotifyPropertyChanged
         {
             public int Id { get; set; }
             public string Display { get; set; }
@@ -1649,7 +1630,7 @@ namespace ProductCheckerV2
             public event PropertyChangedEventHandler PropertyChanged;
         }
 
-        private class SelectedFilterItem
+        public class SelectedFilterItem
         {
             public string Category { get; set; }
             public string Display { get; set; }
@@ -1671,18 +1652,3 @@ namespace ProductCheckerV2
         public string Platform { get; set; }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

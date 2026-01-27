@@ -152,6 +152,61 @@
             <Setter Property="Padding" Value="16,8"/>
         </Style>
 
+        <!-- Environment Popup Styles -->
+        <Style x:Key="PopupCard" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="MinWidth" Value="270"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="24"
+                                      ShadowDepth="0"
+                                      Opacity="0.18"
+                                      Color="#0F172A"
+                                      Direction="270"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PopupHeaderText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
+            <Setter Property="FontSize" Value="14.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="PopupLabel" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <Style x:Key="PopupPasswordBox" TargetType="PasswordBox">
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="0,0,0,12"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <Style x:Key="PopupComboBox" TargetType="ComboBox">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
         <!-- Success Modal Button -->
         <Style x:Key="SuccessModalButton" TargetType="Button" BasedOn="{StaticResource ModalButton}">
             <Setter Property="Background" Value="{StaticResource SuccessBrush}"/>
@@ -325,83 +380,6 @@
             </Setter>
         </Style>
 
-        <!-- Selected Filter Remove Button -->
-        <Style x:Key="SelectedFilterRemoveButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Width" Value="24"/>
-            <Setter Property="Height" Value="24"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Background" Value="#F1F5F9"/>
-            <Setter Property="Foreground" Value="#475569"/>
-            <Setter Property="Margin" Value="10,0,0,0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="#E2E8F0"
-                                BorderThickness="1"
-                                CornerRadius="11">
-                            <Path x:Name="icon"
-                                  Data="M 6 6 L 16 16 M 16 6 L 6 16"
-                                  Stroke="{TemplateBinding Foreground}"
-                                  StrokeThickness="2"
-                                  StrokeStartLineCap="Round"
-                                  StrokeEndLineCap="Round"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#FEE2E2"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#FCA5A5"/>
-                                <Setter Property="Foreground" Value="#DC2626"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#FECACA"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.6"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Upload Clear Button -->
-        <Style x:Key="UploadClearButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-            <Setter Property="Background" Value="#FEE2E2"/>
-            <Setter Property="Foreground" Value="#991B1B"/>
-            <Setter Property="FontSize" Value="12.5"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Width" Value="72"/>
-            <Setter Property="Height" Value="28"/>
-            <Setter Property="Padding" Value="0"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="#FCA5A5"
-                                BorderThickness="1"
-                                CornerRadius="8">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#FECACA"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#FCA5A5"/>
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.6"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- Status Indicator -->
         <Style x:Key="StatusIndicator" TargetType="Border">
             <Setter Property="Width" Value="12"/>
@@ -489,7 +467,7 @@
                                FontWeight="Bold"
                                Foreground="{StaticResource TextPrimaryBrush}"
                                VerticalAlignment="Center"/>
-                                        <StackPanel x:Name="StageIndicatorPanel"
+                    <StackPanel x:Name="StageIndicatorPanel"
                                 Orientation="Horizontal"
                                 VerticalAlignment="Center"
                                 Visibility="Collapsed">
@@ -550,56 +528,78 @@
                            AllowsTransparency="True"
                            PopupAnimation="Fade"
                            Closed="EnvironmentSettingsPopup_Closed">
-                        <Border Background="White"
-                                BorderBrush="{StaticResource BorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="12"
-                                Padding="16"
-                                Margin="0,8,0,0"
-                                MinWidth="240">
-                            <StackPanel>
-                                <TextBlock Text="Database Settings"
-                                           FontWeight="Bold"
-                                           FontSize="14"
-                                           Foreground="{StaticResource TextPrimaryBrush}"
-                                           Margin="0,0,0,12"/>
+                        <Border Style="{StaticResource PopupCard}"
+                                Margin="0,10,0,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
 
-                                <TextBlock Text="Password"
-                                           FontSize="12.5"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           Margin="0,0,0,4"/>
-                                <PasswordBox x:Name="EnvironmentPasswordBox"
-                                             Height="32"
-                                             Padding="8"
-                                             Margin="0,0,0,10"/>
+                                <!-- Header -->
+                                <Border Grid.Row="0"
+                                        Background="{StaticResource PrimaryBrush}"
+                                        CornerRadius="14,14,0,0"
+                                        Padding="14,10">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Width="28"
+                                                Height="28"
+                                                CornerRadius="8"
+                                                Background="#1D4ED8"
+                                                BorderBrush="#93C5FD"
+                                                BorderThickness="1"
+                                                VerticalAlignment="Center">
+                                            <TextBlock Text="⚙"
+                                                       FontSize="14"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+                                        </Border>
+                                        <StackPanel Margin="10,0,0,0"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="Database Settings"
+                                                       Style="{StaticResource PopupHeaderText}"/>
+                                            <TextBlock Text="Switch Stage / Live"
+                                                       FontSize="11.5"
+                                                       Foreground="#DBEAFE"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
 
-                                <TextBlock Text="Environment"
-                                           FontSize="12.5"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           Margin="0,0,0,4"/>
-                                <ComboBox x:Name="SettingsEnvironmentComboBox"
-                                          Height="34"
-                                          SelectionChanged="EnvironmentComboBox_SelectionChanged">
-                                    <ComboBoxItem Content="Stage" />
-                                    <ComboBoxItem Content="Live" />
-                                </ComboBox>
+                                <!-- Content -->
+                                <StackPanel Grid.Row="1"
+                                            Margin="16,14,16,16">
+                                    <TextBlock Text="Password"
+                                               Style="{StaticResource PopupLabel}"/>
+                                    <PasswordBox x:Name="EnvironmentPasswordBox"
+                                                 Style="{StaticResource PopupPasswordBox}"/>
 
-                                <StackPanel Orientation="Horizontal"
-                                            HorizontalAlignment="Right"
-                                            Margin="0,12,0,0">
-                                    <Button Content="Apply"
-                                            Style="{StaticResource PrimaryButton}"
-                                            Padding="14,8"
-                                            Click="ApplyEnvironmentSettingsButton_Click"/>
+                                    <TextBlock Text="Environment"
+                                               Style="{StaticResource PopupLabel}"/>
+                                    <ComboBox x:Name="SettingsEnvironmentComboBox"
+                                              Style="{StaticResource PopupComboBox}"
+                                              SelectionChanged="EnvironmentComboBox_SelectionChanged">
+                                        <ComboBoxItem Content="Stage" />
+                                        <ComboBoxItem Content="Live" />
+                                    </ComboBox>
+
+                                    <TextBlock Text="Changes apply immediately after confirmation."
+                                               FontSize="11.5"
+                                               Foreground="{StaticResource TextLightBrush}"
+                                               Margin="0,4,0,12"/>
+
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Right">
+                                        <Button Content="Apply"
+                                                Style="{StaticResource PrimaryButton}"
+                                                Padding="18,9"
+                                                FontWeight="SemiBold"
+                                                Click="ApplyEnvironmentSettingsButton_Click"/>
+                                    </StackPanel>
                                 </StackPanel>
-                            </StackPanel>
+                            </Grid>
                         </Border>
                     </Popup>
                 </StackPanel>
-
-                                
-
-                
             </Grid>
         </Border>
 
@@ -851,7 +851,7 @@
                     </Grid>
 
                     <TextBlock x:Name="SuccessRequestId"
-                               Text="Sucesssfully submittted request."
+                               Text="Successfully submitted request."
                                FontSize="18"
                                FontWeight="Bold"
                                Foreground="#10B981"
@@ -998,7 +998,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                
+
 
                                 <StackPanel Grid.Column="1"
                                             Orientation="Horizontal"
@@ -1015,10 +1015,6 @@
                                                  GroupName="InputMode"
                                                  Checked="ModeRadio_Checked"/>
                                 </StackPanel>
-
-                                                
-
-                
                             </Grid>
 
                             <Grid Grid.Row="1">
@@ -1047,46 +1043,99 @@
                                                             Orientation="Horizontal"
                                                             HorizontalAlignment="Right"
                                                             VerticalAlignment="Center">
+                                                    <Button x:Name="ClearButton" Content="Clear All"
+                                                            Style="{StaticResource SecondaryButton}"
+                                                            Padding="14,8"
+                                                            FontSize="10"
+                                                            Click="ClearButton_Click"/>
                                                     <Button Content="Preview Listings"
                                                             Style="{StaticResource PrimaryButton}"
                                                             Padding="16,8"
                                                             FontSize="10"
                                                             Margin="0,0,8,0"
                                                             Click="PreviewListingsButton_Click"/>
-                                                    <Button Content="Clear"
-                                                            Style="{StaticResource SecondaryButton}"
-                                                            Padding="14,8"
-                                                            FontSize="10"
-                                                            Click="ClearButton_Click"/>
+                                                    
                                                 </StackPanel>
                                             </Grid>
-                                            
-                                            <ListBox x:Name="SelectedFiltersListBox"
-                                                     Height="80"
-                                                     BorderBrush="{StaticResource BorderBrush}"
-                                                     BorderThickness="1">
-                                                <ListBox.ItemTemplate>
+
+                                            <!-- Selected Filters Tags -->
+                                            <ScrollViewer MaxHeight="220"
+                                                          Padding="10,5"
+                                                          Background="#F7FAFC"
+                                                          VerticalScrollBarVisibility="Auto"
+                                                          HorizontalScrollBarVisibility="Disabled">
+                                                <ItemsControl x:Name="SelectedFiltersContainer"
+                                                              ItemsSource="{Binding SelectedFilters}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <WrapPanel Orientation="Horizontal"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Grid>
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*"/>
-                                                                <ColumnDefinition Width="Auto"/>
-                                                            </Grid.ColumnDefinitions>
-                                                            <TextBlock Text="{Binding Display}"
-                                                                       VerticalAlignment="Center"
-                                                                       Foreground="{StaticResource TextSecondaryBrush}"/>
-                                                            <Button Grid.Column="1"
-                                                                    Content="x"
-                                                                    Style="{StaticResource SelectedFilterRemoveButton}"
-                                                                    Click="RemoveSelectedFilter_Click"/>
-                                                        </Grid>
+                                                        <Border Background="#EFF6FF"
+                                                                CornerRadius="12"
+                                                                Padding="10,6"
+                                                                Margin="0,4,8,4"
+                                                                BorderBrush="#DBEAFE"
+                                                                BorderThickness="1">
+                                                            <DockPanel>
+                                                                <TextBlock Text="{Binding Category}" 
+                                                                           Foreground="#1D4ED8"
+                                                                           FontSize="12"
+                                                                           FontWeight="SemiBold"
+                                                                           Margin="0,0,6,0"
+                                                                           VerticalAlignment="Center"/>
+                                                                <TextBlock Text="{Binding Display}" 
+                                                                           Foreground="#1E40AF"
+                                                                           FontSize="12.5"
+                                                                           VerticalAlignment="Center"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           MaxWidth="150"/>
+                                                                <Button Content="×"
+                                                                        Width="20"
+                                                                        Height="20"
+                                                                        Padding="0"
+                                                                        Margin="8,0,0,0"
+                                                                        Background="Transparent"
+                                                                        Foreground="#64748B"
+                                                                        BorderThickness="0"
+                                                                        FontSize="14"
+                                                                        FontWeight="Bold"
+                                                                        VerticalAlignment="Center"
+                                                                        HorizontalAlignment="Center"
+                                                                        Click="RemoveSelectedFilter_Click"
+                                                                        Cursor="Hand">
+                                                                    <Button.Template>
+                                                                        <ControlTemplate TargetType="Button">
+                                                                            <Border x:Name="border"
+                                                                                    Background="{TemplateBinding Background}"
+                                                                                    CornerRadius="10"
+                                                                                    Width="{TemplateBinding Width}"
+                                                                                    Height="{TemplateBinding Height}">
+                                                                                <ContentPresenter HorizontalAlignment="Center" 
+                                                                                                VerticalAlignment="Center"/>
+                                                                            </Border>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                                    <Setter TargetName="border" Property="Background" Value="#FEE2E2"/>
+                                                                                    <Setter Property="Foreground" Value="#DC2626"/>
+                                                                                </Trigger>
+                                                                            </ControlTemplate.Triggers>
+                                                                        </ControlTemplate>
+                                                                    </Button.Template>
+                                                                </Button>
+                                                            </DockPanel>
+                                                        </Border>
                                                     </DataTemplate>
-                                                </ListBox.ItemTemplate>
-                                            </ListBox>
+                                                </ItemsControl.ItemTemplate>
+                                                                                            </ItemsControl>
+                                            </ScrollViewer>
+
                                             <TextBlock x:Name="SelectedCountsText"
-                                               FontSize="12.5"
-                                               Foreground="{StaticResource TextSecondaryBrush}"
-                                               Margin="0,5,0,0"/>
+                                                       FontSize="12.5"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       Margin="0,5,0,0"/>
                                         </StackPanel>
                                     </Border>
 
@@ -1095,16 +1144,45 @@
                                             <!-- Filters -->
                                             <Border Style="{StaticResource FlatCard}">
                                                 <StackPanel>
-                                                    <Expander Header="Campaigns" IsExpanded="True" Margin="0,0,0,8">
+                                                    <!-- Campaign Filter -->
+                                                    <Border Background="#F8FAFC"
+                                                            CornerRadius="10"
+                                                            Padding="16"
+                                                            Margin="0,0,0,10">
                                                         <StackPanel>
+                                                            <DockPanel Margin="0,0,0,12">
+                                                                <Border Width="32"
+                                                                        Height="32"
+                                                                        Background="{StaticResource PrimaryBrush}"
+                                                                        CornerRadius="8"
+                                                                        DockPanel.Dock="Left"
+                                                                        Margin="0,0,12,0">
+                                                                    <TextBlock Text="📊"
+                                                                               FontSize="14"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Filter By Campaign"
+                                                                               FontSize="15"
+                                                                               FontWeight="Bold"
+                                                                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                                    <TextBlock Text="Select one or more campaigns"
+                                                                               FontSize="12.5"
+                                                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                                </StackPanel>
+                                                            </DockPanel>
+
                                                             <TextBox x:Name="CampaignSearchTextBox"
                                                                      Style="{StaticResource FilterTextBox}"
                                                                      TextChanged="CampaignSearchTextBox_TextChanged"
-                                                                     ToolTip="Search campaigns"/>
+                                                                     ToolTip="Search campaigns"
+                                                                     Margin="0,0,0,8"/>
                                                             <ListBox x:Name="CampaignListBox"
                                                                      Height="120"
                                                                      BorderBrush="{StaticResource BorderBrush}"
-                                                                     BorderThickness="1">
+                                                                     BorderThickness="1"
+                                                                     Background="White">
                                                                 <ListBox.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <CheckBox Content="{Binding Display}"
@@ -1116,18 +1194,47 @@
                                                                 </ListBox.ItemTemplate>
                                                             </ListBox>
                                                         </StackPanel>
-                                                    </Expander>
+                                                    </Border>
 
-                                                    <Expander Header="Cases" IsExpanded="False" Margin="0,0,0,8">
+                                                    <!-- Cases Filter -->
+                                                    <Border Background="#F8FAFC"
+                                                            CornerRadius="10"
+                                                            Padding="16"
+                                                            Margin="0,0,0,10">
                                                         <StackPanel>
+                                                            <DockPanel Margin="0,0,0,12">
+                                                                <Border Width="32"
+                                                                        Height="32"
+                                                                        Background="#8B5CF6"
+                                                                        CornerRadius="8"
+                                                                        DockPanel.Dock="Left"
+                                                                        Margin="0,0,12,0">
+                                                                    <TextBlock Text="📁"
+                                                                               FontSize="14"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Filter By Cases"
+                                                                               FontSize="15"
+                                                                               FontWeight="Bold"
+                                                                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                                    <TextBlock Text="Select one or more cases"
+                                                                               FontSize="12.5"
+                                                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                                </StackPanel>
+                                                            </DockPanel>
+
                                                             <TextBox x:Name="CaseSearchTextBox"
                                                                      Style="{StaticResource FilterTextBox}"
                                                                      TextChanged="CaseSearchTextBox_TextChanged"
-                                                                     ToolTip="Search cases"/>
+                                                                     ToolTip="Search cases"
+                                                                     Margin="0,0,0,8"/>
                                                             <ListBox x:Name="CaseListBox"
                                                                      Height="120"
                                                                      BorderBrush="{StaticResource BorderBrush}"
-                                                                     BorderThickness="1">
+                                                                     BorderThickness="1"
+                                                                     Background="White">
                                                                 <ListBox.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <CheckBox Content="{Binding Display}"
@@ -1139,18 +1246,47 @@
                                                                 </ListBox.ItemTemplate>
                                                             </ListBox>
                                                         </StackPanel>
-                                                    </Expander>
+                                                    </Border>
 
-                                                    <Expander Header="Platforms" IsExpanded="False" Margin="0,0,0,8">
+                                                    <!-- Platforms Filter -->
+                                                    <Border Background="#F8FAFC"
+                                                            CornerRadius="10"
+                                                            Padding="16"
+                                                            Margin="0,0,0,10">
                                                         <StackPanel>
+                                                            <DockPanel Margin="0,0,0,12">
+                                                                <Border Width="32"
+                                                                        Height="32"
+                                                                        Background="#10B981"
+                                                                        CornerRadius="8"
+                                                                        DockPanel.Dock="Left"
+                                                                        Margin="0,0,12,0">
+                                                                    <TextBlock Text="🌐"
+                                                                               FontSize="14"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Filter By Platform"
+                                                                               FontSize="15"
+                                                                               FontWeight="Bold"
+                                                                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                                    <TextBlock Text="Select one or more platforms"
+                                                                               FontSize="12.5"
+                                                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                                </StackPanel>
+                                                            </DockPanel>
+
                                                             <TextBox x:Name="PlatformSearchTextBox"
                                                                      Style="{StaticResource FilterTextBox}"
                                                                      TextChanged="PlatformSearchTextBox_TextChanged"
-                                                                     ToolTip="Search platforms"/>
+                                                                     ToolTip="Search platforms"
+                                                                     Margin="0,0,0,8"/>
                                                             <ListBox x:Name="PlatformListBox"
                                                                      Height="120"
                                                                      BorderBrush="{StaticResource BorderBrush}"
-                                                                     BorderThickness="1">
+                                                                     BorderThickness="1"
+                                                                     Background="White">
                                                                 <ListBox.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <CheckBox Content="{Binding Display}"
@@ -1162,18 +1298,46 @@
                                                                 </ListBox.ItemTemplate>
                                                             </ListBox>
                                                         </StackPanel>
-                                                    </Expander>
+                                                    </Border>
 
-                                                    <Expander Header="Status" IsExpanded="False">
+                                                    <!-- Status Filter -->
+                                                    <Border Background="#F8FAFC"
+                                                            CornerRadius="10"
+                                                            Padding="16">
                                                         <StackPanel>
+                                                            <DockPanel Margin="0,0,0,12">
+                                                                <Border Width="32"
+                                                                        Height="32"
+                                                                        Background="#F59E0B"
+                                                                        CornerRadius="8"
+                                                                        DockPanel.Dock="Left"
+                                                                        Margin="0,0,12,0">
+                                                                    <TextBlock Text="🏷️"
+                                                                               FontSize="14"
+                                                                               HorizontalAlignment="Center"
+                                                                               VerticalAlignment="Center"/>
+                                                                </Border>
+                                                                <StackPanel>
+                                                                    <TextBlock Text="Filter By Status"
+                                                                               FontSize="15"
+                                                                               FontWeight="Bold"
+                                                                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                                    <TextBlock Text="Select one or more statuses"
+                                                                               FontSize="12.5"
+                                                                               Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                                </StackPanel>
+                                                            </DockPanel>
+
                                                             <TextBox x:Name="QflagSearchTextBox"
                                                                      Style="{StaticResource FilterTextBox}"
                                                                      TextChanged="QflagSearchTextBox_TextChanged"
-                                                                     ToolTip="Search Status"/>
+                                                                     ToolTip="Search Status"
+                                                                     Margin="0,0,0,8"/>
                                                             <ListBox x:Name="QflagListBox"
                                                                      Height="120"
                                                                      BorderBrush="{StaticResource BorderBrush}"
-                                                                     BorderThickness="1">
+                                                                     BorderThickness="1"
+                                                                     Background="White">
                                                                 <ListBox.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <CheckBox Content="{Binding Display}"
@@ -1185,11 +1349,9 @@
                                                                 </ListBox.ItemTemplate>
                                                             </ListBox>
                                                         </StackPanel>
-                                                    </Expander>
-
+                                                    </Border>
                                                 </StackPanel>
                                             </Border>
-
                                         </StackPanel>
                                     </ScrollViewer>
                                 </Grid>
@@ -1257,12 +1419,14 @@
                                                                          Foreground="{StaticResource TextSecondaryBrush}"
                                                                          TextTrimming="CharacterEllipsis"/>
                                                             </Border>
-                                                            <Button x:Name="ClearButton" 
+                                                            <Button x:Name="ClearUploadButton" 
                                                                     Content="Clear"
-                                                                    Style="{StaticResource UploadClearButtonStyle}"
+                                                                    Style="{StaticResource SecondaryButton}"
+                                                                    Padding="14,8"
+                                                                    FontSize="10"
                                                                     HorizontalAlignment="Right"
-                                                                    Click="ClearButton_Click"
-                                                                    Margin="5"/>
+                                                                    Margin="5"
+                                                                    Click="UploadClearButton_Click"/>
                                                         </Grid>
                                                     </StackPanel>
 
@@ -1290,7 +1454,6 @@
                     </Border>
 
                     <!-- Right Panel: Data Preview -->
-
                     <Border Grid.Column="1" Style="{StaticResource ModernCard}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -1316,7 +1479,7 @@
                                          VerticalAlignment="Center"/>
                                 </Grid>
 
-                                                                <!-- Left side: Title and stats -->
+                                <!-- Left side: Title and stats -->
                                 <StackPanel Grid.Column="1">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Style="{StaticResource SectionHeader}" Text="Data Preview" Margin="0"/>
@@ -1504,16 +1667,4 @@
         </Grid>
     </Grid>
 </Window>
-
-
-
-
-
-
-
-
-
-
-
-
 
