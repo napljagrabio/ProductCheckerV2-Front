@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace ProductCheckerV2.Database.Models
 {
     [Table("request_infos")]
-    public class RequestInfos
+    public class RequestInfo
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -20,10 +20,14 @@ namespace ProductCheckerV2.Database.Models
         [MaxLength(255)]
         public string FileName { get; set; }
 
+        [Column("environment")]
+        [MaxLength(255)]
+        public string Environment { get; set; }
+
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         // Navigation property
-        public virtual ICollection<Requests> Requests { get; set; }
+        public virtual ICollection<Request> Requests { get; set; }
     }
 }

@@ -17,6 +17,7 @@
         <SolidColorBrush x:Key="TextSecondaryBrush" Color="#718096"/>
         <SolidColorBrush x:Key="BorderBrush" Color="#E2E8F0"/>
         <SolidColorBrush x:Key="HoverBrush" Color="#F7FAFC"/>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
         <!-- Selection Highlight -->
         <SolidColorBrush x:Key="SelectedBrush" Color="#E3F2FD"/>
@@ -118,7 +119,7 @@
                         <Setter Property="Background" Value="Transparent"/>
                         <Setter Property="BorderBrush" Value="Transparent"/>
                         <Setter Property="BorderThickness" Value="0"/>
-                        <Setter Property="Margin" Value="0,0,0,8"/>
+                        <Setter Property="Margin" Value="0,0,0,0"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
@@ -268,6 +269,46 @@
             <Setter Property="MinWidth" Value="80"/>
             <Setter Property="Height" Value="36"/>
             <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <!-- Priority Toggle Button -->
+        <Style x:Key="PriorityToggleButton" TargetType="ToggleButton">
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E2E8F0"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#FEE2E2"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#FCA5A5"/>
+                                <Setter Property="Foreground" Value="#B91C1C"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- Success Modal Button -->
@@ -604,31 +645,42 @@
                     </Grid.RowDefinitions>
 
                     <!-- Requests Header with Search -->
-                    <StackPanel Grid.Row="0" Margin="0,0,0,15">
+                    <StackPanel Grid.Row="0" Margin="0,0,0,5">
                         <!-- Title with Auto-Refresh Indicator -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <TextBlock Text="📊 All Requests" 
-                                     FontSize="18" 
-                                     FontWeight="SemiBold" 
-                                     Foreground="#2D3748"/>
-                            <TextBlock x:Name="RequestCountText" 
-                                     Text="(0 requests)"
-                                     FontSize="16"
-                                     Foreground="#718096"
-                                     VerticalAlignment="Center"
-                                     Margin="10,0,0,0"
-                                     ToolTipService.ShowDuration="10000"/>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                       Text="📊 All Requests"
+                                       FontSize="18"
+                                       FontWeight="SemiBold"
+                                       Foreground="#2D3748"
+                                       VerticalAlignment="Center"/>
+
+                            <TextBlock x:Name="RequestCountText"
+                                       Grid.Column="1"
+                                       Text="(0 requests)"
+                                       FontSize="16"
+                                       Foreground="#718096"
+                                       VerticalAlignment="Center"
+                                       Margin="10,0,0,0"
+                                       ToolTipService.ShowDuration="10000"/>
 
                             <!-- Auto-Refresh Indicator -->
-                            <Border x:Name="AutoRefreshIndicator"
-                                    Width="16"
-                                    Height="16"
-                                    CornerRadius="8"
-                                    Background="#4361ee"
-                                    Margin="10,0,0,0"
-                                    VerticalAlignment="Center"
-                                    ToolTip="Auto-refresh is active (every 5 seconds)">
-                                <Border.Triggers>
+                            <Ellipse x:Name="AutoRefreshIndicator"
+                                     Grid.Column="2"
+                                     Width="10"
+                                     Height="10"
+                                     Fill="#4361ee"
+                                     Margin="10,0,0,0"
+                                     VerticalAlignment="Center"
+                                     HorizontalAlignment="Left"
+                                     ToolTip="Auto-refresh is active (every 5 seconds)">
+                                <Ellipse.Triggers>
                                     <EventTrigger RoutedEvent="Loaded">
                                         <BeginStoryboard>
                                             <Storyboard>
@@ -640,9 +692,9 @@
                                             </Storyboard>
                                         </BeginStoryboard>
                                     </EventTrigger>
-                                </Border.Triggers>
-                            </Border>
-                        </StackPanel>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                        </Grid>
 
                         <!-- Search Bar -->
                         <TextBox x:Name="SearchTextBox"
@@ -657,68 +709,114 @@
                             SelectionChanged="RequestsListBox_SelectionChanged">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
+                                <Border Background="#F8FAFC"
+                                        BorderBrush="#E2E8F0"
+                                        BorderThickness="1"
+                                        CornerRadius="10"
+                                        Padding="14">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
 
-                                    <!-- Request Details -->
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="{Binding FileName}"
-                                                   FontSize="16"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="#2D3748"
-                                                   TextTrimming="CharacterEllipsis"/>
-
-                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                        <!-- Top Row: RID + Listings -->
+                                        <StackPanel Grid.Row="0"
+                                                    Grid.Column="0"
+                                                    Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
                                             <TextBlock Text="RID:"
-                                                       FontSize="14"
+                                                       FontSize="11.5"
                                                        FontWeight="SemiBold"
-                                                       Foreground="#718096"
-                                                       Margin="0,0,5,0"/>
+                                                       Foreground="#94A3B8"/>
                                             <TextBlock Text="{Binding RequestInfoId}"
-                                                       FontSize="14"
-                                                       FontWeight="Medium"
+                                                       FontSize="11.5"
+                                                       FontWeight="SemiBold"
                                                        Foreground="#4361ee"
-                                                       Margin="0,0,15,0"/>
-
+                                                       Margin="6,0,0,0"/>
                                             <TextBlock Text="•"
-                                                       FontSize="14"
-                                                       Foreground="#718096"
-                                                       Margin="0,0,10,0"/>
-
-                                            <TextBlock Text="{Binding User}"
-                                                       FontSize="14"
-                                                       Foreground="#718096"
-                                                       Margin="0,0,15,0"/>
-                                        </StackPanel>
-
-                                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                            <TextBlock Text="{Binding CreatedAt, StringFormat='yyyy MMM d, h:mm tt'}"
-                                                       FontSize="12"
-                                                       Foreground="#718096"/>
-                                            <TextBlock Text=" • "
-                                                       FontSize="12"
-                                                       Foreground="#718096"/>
+                                                       FontSize="11.5"
+                                                       Foreground="#94A3B8"
+                                                       Margin="5,0,5,0"/>
                                             <TextBlock Text="{Binding ListingsCount}"
-                                                       FontSize="12"
+                                                       FontSize="11.5"
                                                        FontWeight="SemiBold"
                                                        Foreground="#4361ee"/>
                                             <TextBlock Text=" listings"
-                                                       FontSize="12"
-                                                       Foreground="#718096"/>
+                                                       FontSize="11.5"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#94A3B8"/>
                                         </StackPanel>
-                                    </StackPanel>
 
-                                    <!-- Status Badge -->
-                                    <ContentControl Grid.Column="1"
-                                                    VerticalAlignment="Center"
-                                                    Template="{StaticResource StatusBadgeTemplate}"
-                                                    Content="{Binding Status}"
-                                                    Background="{Binding StatusBrush}"
-                                                    ToolTip="{Binding Status}"/>
-                                </Grid>
+                                        <!-- Top Row Right: Priority + Status Dot -->
+                                        <StackPanel Grid.Row="0"
+                                                    Grid.Column="1"
+                                                    Orientation="Horizontal"
+                                                    HorizontalAlignment="Right"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="🌟"
+                                                       FontSize="16"
+                                                       Margin="0,0,8,0"
+                                                       Visibility="{Binding IsHighPriority, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                       ToolTip="Highest priority"/>
+                                            <Ellipse Width="16"
+                                                     Height="16"
+                                                     Fill="{Binding StatusBrush}"
+                                                     Stroke="#FFFFFF"
+                                                     StrokeThickness="1.5"
+                                                     ToolTip="{Binding Status}"/>
+                                        </StackPanel>
+
+                                        <!-- Middle Row: File Name -->
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="0"
+                                                   Grid.ColumnSpan="2"
+                                                   Text="{Binding FileName}"
+                                                   FontSize="18"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="#0F172A"
+                                                   Margin="0,6,0,0"
+                                                   TextTrimming="CharacterEllipsis"/>
+
+                                        <!-- Bottom Row Left: User + Created -->
+                                        <StackPanel Grid.Row="2"
+                                                    Grid.Column="0"
+                                                    Margin="0,6,10,0">
+                                            <TextBlock Text="{Binding User}"
+                                                       FontSize="13"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#2563EB"/>
+                                            <TextBlock Text="{Binding CreatedAt, StringFormat='yyyy MMM d, h:mm tt'}"
+                                                       FontSize="10.5"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="#94A3B8"
+                                                       Margin="0,2,0,0"/>
+                                        </StackPanel>
+
+                                        <!-- Bottom Row Right: Match Badge -->
+                                        <StackPanel Grid.Row="2" Grid.ColumnSpan="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Border
+                                                    Margin="0,6,0,0"
+                                                    Padding="14,6"
+                                                    CornerRadius="16"
+                                                    Background="#E0F2FE"
+                                                    BorderBrush="#0EA5E9"
+                                                    BorderThickness="2"
+                                                    Visibility="{Binding HasListingMatch, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    ToolTip="Matching product listings">
+                                                <TextBlock Foreground="#0284C7"
+                                                           FontSize="12.5"
+                                                           FontWeight="SemiBold"
+                                                           Text="{Binding MatchCount, StringFormat={}{0} matches}"/>
+                                            </Border>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
@@ -922,6 +1020,12 @@
                                         FontSize="12.5"
                                         Foreground="#475569"/>
                             </Border>
+                            <ToggleButton x:Name="PriorityToggleButton"
+                                          Content="High Priority"
+                                          Style="{StaticResource PriorityToggleButton}"
+                                          Click="PriorityToggleButton_Click"
+                                          Margin="10,0,0,0"
+                                          IsEnabled="False"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1"
@@ -954,5 +1058,9 @@
         </Grid>
     </Grid>
 </Page>
+
+
+
+
 
 

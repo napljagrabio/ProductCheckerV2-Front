@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ProductCheckerV2.Database.Models
 {
-    [Table("platforms")]
-    public class Platform
+    [Table("campaigns")]
+    public class Campaign
     {
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }

@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace ProductCheckerV2.Database.Models
 {
     [Table("product_checker_listings")]
-    public class ProductListings
+    public class ProductListing
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -49,6 +49,6 @@ namespace ProductCheckerV2.Database.Models
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         [ForeignKey("RequestInfoId")]
-        public virtual RequestInfos RequestInfo { get; set; }
+        public virtual RequestInfo RequestInfo { get; set; }
     }
 }

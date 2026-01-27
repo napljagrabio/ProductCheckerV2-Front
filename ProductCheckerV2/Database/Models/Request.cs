@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace ProductCheckerV2.Database.Models
 {
     [Table("requests")]
-    public class Requests
+    public class Request
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -24,6 +24,9 @@ namespace ProductCheckerV2.Database.Models
         [Column("rescan_info_id")]
         public int RescanInfoId { get; set; }
 
+        [Column("priority")]
+        public int Priority { get; set; }
+
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
@@ -34,7 +37,7 @@ namespace ProductCheckerV2.Database.Models
         public DateTime? DeletedAt { get; set; }
 
         [ForeignKey("RequestInfoId")]
-        public virtual RequestInfos RequestInfo { get; set; }
+        public virtual RequestInfo RequestInfo { get; set; }
     }
 
     public enum RequestStatus

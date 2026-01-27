@@ -32,6 +32,7 @@ namespace ProductCheckerV2
         private bool _isRefreshing = false;
         private bool _rescanOnlyErrors = false;
         private string _selectedExportPath = "";
+        private string _currentSearchText = string.Empty;
 
         public ViewRequestsPage()
         {
@@ -93,13 +94,14 @@ namespace ProductCheckerV2
         {
             try
             {
-                using var context = new ProductCheckerV2DbContext();
+                using var context = new ProductCheckerDbContext();
 
                 var requests = await context.Requests
                     .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null)
                     .Select(r => new
                     {
                         r.Id,
+                        r.Priority,
                         r.Status,
                         r.CreatedAt,
                         r.RequestInfoId,
@@ -130,7 +132,9 @@ namespace ProductCheckerV2
                         FileName = r.RequestInfo?.FileName ?? "Unknown",
                         Status = r.Status,
                         CreatedAt = r.CreatedAt,
-                        ListingsCount = listingsCount
+                        ListingsCount = listingsCount,
+                        Priority = r.Priority,
+                        IsHighPriority = r.Priority == 1
                     });
                 }
 
@@ -138,6 +142,7 @@ namespace ProductCheckerV2
 
                 // Check if there are any changes
                 bool hasChanges = CheckForChanges(requestViewModels);
+                bool searchActive = !string.IsNullOrWhiteSpace(SearchTextBox?.Text);
 
                 if (hasChanges)
                 {
@@ -155,6 +160,8 @@ namespace ProductCheckerV2
                         _selectedRequest.Status = selectedRequestInDb.Status;
                         _selectedRequest.ListingsCount = selectedRequestInDb.ListingsCount;
                         _selectedRequest.StatusBrush = GetStatusBrush(_selectedRequest.Status);
+                        _selectedRequest.Priority = selectedRequestInDb.Priority;
+                        _selectedRequest.IsHighPriority = selectedRequestInDb.Priority == 1;
 
                         // Update UI for selected request
                         UpdateSelectedRequestDisplay(_selectedRequest);
@@ -171,11 +178,24 @@ namespace ProductCheckerV2
 
                 if (hasChanges)
                 {
+                    if (searchActive)
+                    {
+                        UpdateListingSearchMatches();
+                    }
+
                     // Refresh the filtered view
                     _requestsView?.Refresh();
+                    UpdateRequestCountText();
 
                     // Show a subtle notification that data was refreshed (optional)
                     ShowRefreshNotification();
+                }
+                else if (searchActive)
+                {
+                    // Keep search results fresh even when request metadata hasn't changed.
+                    UpdateListingSearchMatches();
+                    _requestsView?.Refresh();
+                    UpdateRequestCountText();
                 }
             }
             catch (Exception ex)
@@ -189,13 +209,14 @@ namespace ProductCheckerV2
         {
             try
             {
-                using var context = new ProductCheckerV2DbContext();
+                using var context = new ProductCheckerDbContext();
 
                 var requests = context.Requests
                     .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null)
                     .Select(r => new
                     {
                         r.Id,
+                        r.Priority,
                         r.Status,
                         r.CreatedAt,
                         r.RequestInfoId,
@@ -233,7 +254,9 @@ namespace ProductCheckerV2
                         FileName = r.RequestInfo?.FileName ?? "Unknown",
                         Status = r.Status,
                         CreatedAt = r.CreatedAt,
-                        ListingsCount = listingsCount
+                        ListingsCount = listingsCount,
+                        Priority = r.Priority,
+                        IsHighPriority = r.Priority == 1
                     };
 
                     requestVM.StatusBrush = GetStatusBrush(requestVM.Status);
@@ -246,7 +269,16 @@ namespace ProductCheckerV2
                 _requestsView.Filter = RequestFilter;
 
                 RequestsListBox.ItemsSource = _requestsView;
-                RequestCountText.Text = $"({pendingRequests} pending)";
+                if (!string.IsNullOrWhiteSpace(SearchTextBox?.Text))
+                {
+                    UpdateListingSearchMatches();
+                    _requestsView.Refresh();
+                    UpdateRequestCountText();
+                }
+                else
+                {
+                    RequestCountText.Text = $"({pendingRequests} pending)";
+                }
 
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -283,7 +315,7 @@ namespace ProductCheckerV2
         {
             try
             {
-                using var context = new ProductCheckerV2DbContext();
+                using var context = new ProductCheckerDbContext();
 
                 // Get the RequestInfoId for this request
                 var request = context.Requests
@@ -433,7 +465,8 @@ namespace ProductCheckerV2
                     return true;
 
                 if (oldRequest.Status != newRequest.Status ||
-                    oldRequest.ListingsCount != newRequest.ListingsCount)
+                    oldRequest.ListingsCount != newRequest.ListingsCount ||
+                    oldRequest.Priority != newRequest.Priority)
                 {
                     return true;
                 }
@@ -460,6 +493,8 @@ namespace ProductCheckerV2
                     existingRequest.ListingsCount = updatedRequest.ListingsCount;
                     existingRequest.StatusBrush = GetStatusBrush(existingRequest.Status);
                     existingRequest.RequestInfoId = updatedRequest.RequestInfoId;
+                    existingRequest.Priority = updatedRequest.Priority;
+                    existingRequest.IsHighPriority = updatedRequest.IsHighPriority;
                 }
             }
 
@@ -477,7 +512,9 @@ namespace ProductCheckerV2
                     Status = request.Status,
                     CreatedAt = request.CreatedAt,
                     ListingsCount = request.ListingsCount,
-                    StatusBrush = GetStatusBrush(request.Status)
+                    StatusBrush = GetStatusBrush(request.Status),
+                    Priority = request.Priority,
+                    IsHighPriority = request.Priority == 1
                 };
 
                 if (request.Status == RequestStatus.PENDING)
@@ -488,7 +525,14 @@ namespace ProductCheckerV2
             }
 
             _allRequests = _allRequests.OrderByDescending(r => r.Id).ToList();
-            RequestCountText.Text = $"({pendingRequests} pending)";
+            if (!string.IsNullOrWhiteSpace(SearchTextBox?.Text))
+            {
+                UpdateRequestCountText();
+            }
+            else
+            {
+                RequestCountText.Text = $"({pendingRequests} pending)";
+            }
         }
 
         private bool IsFinalStatus(RequestStatus status)
@@ -511,10 +555,14 @@ namespace ProductCheckerV2
             if (item is RequestViewModel request)
             {
                 var searchText = SearchTextBox.Text.ToLower();
-                return request.Id.ToString().Contains(searchText) ||
-                       request.User.ToLower().Contains(searchText) ||
-                       request.FileName.ToLower().Contains(searchText) ||
-                       request.Status.ToString().ToLower().Contains(searchText);
+                var requestMatch =
+                    request.Id.ToString().Contains(searchText) ||
+                    request.User.ToLower().Contains(searchText) ||
+                    request.FileName.ToLower().Contains(searchText) ||
+                    request.Status.ToString().ToLower().Contains(searchText);
+
+                var listingMatch = request.HasListingMatch && request.MatchCount > 0;
+                return requestMatch || listingMatch;
             }
 
             return false;
@@ -589,12 +637,17 @@ namespace ProductCheckerV2
                 ExportButton.IsEnabled = false;
                 RescanButton.Visibility = Visibility.Collapsed;
                 RescanButton.IsEnabled = false;
+                PriorityToggleButton.IsChecked = false;
+                PriorityToggleButton.IsEnabled = false;
                 return;
             }
 
             SelectedRequestTitle.Text = request.FileName;
             SelectedRequestInfo.Text = $"RID: {request.Id} • User: {request.User} • Created: {request.CreatedAt:yyyy MMM d, h:mm tt}";
             SelectedRequestStatus.Text = $"Status: {request.Status}";
+            PriorityToggleButton.IsChecked = request.IsHighPriority;
+            PriorityToggleButton.IsEnabled = true;
+            PriorityToggleButton.ToolTip = request.IsHighPriority ? "Click to remove highest priority" : "Click to set highest priority";
 
             if (IsExportAllowed(request.Status))
             {
@@ -623,6 +676,45 @@ namespace ProductCheckerV2
             }
         }
 
+        private void PriorityToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_selectedRequest == null)
+                return;
+
+            try
+            {
+                var setHighPriority = PriorityToggleButton.IsChecked == true;
+                using var context = new ProductCheckerDbContext();
+                var request = context.Requests.FirstOrDefault(r => r.Id == _selectedRequest.Id);
+                if (request == null)
+                {
+                    ShowErrorMessage("Request not found.", "Priority Update Failed");
+                    return;
+                }
+
+                request.Priority = setHighPriority ? 1 : 0;
+                context.SaveChanges();
+
+                _selectedRequest.Priority = request.Priority;
+                _selectedRequest.IsHighPriority = request.Priority == 1;
+
+                var listItem = _allRequests.FirstOrDefault(r => r.Id == _selectedRequest.Id);
+                if (listItem != null)
+                {
+                    listItem.Priority = request.Priority;
+                    listItem.IsHighPriority = request.Priority == 1;
+                }
+
+                _requestsView?.Refresh();
+                UpdateSelectedRequestDisplay(_selectedRequest);
+                ShowSuccessMessage(setHighPriority ? "Request marked as highest priority." : "Request priority cleared.", "Priority Updated");
+            }
+            catch (Exception ex)
+            {
+                ShowErrorMessage($"Error updating priority: {ex.Message}", "Priority Update Failed");
+            }
+        }
+
         private void ClearListings()
         {
             ListingsDataGrid.ItemsSource = null;
@@ -632,8 +724,74 @@ namespace ProductCheckerV2
 
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
+            UpdateListingSearchMatches();
             _requestsView?.Refresh();
-            var filteredCount = _allRequests.Count(r => RequestFilter(r));
+            UpdateRequestCountText();
+        }
+
+        private void UpdateListingSearchMatches()
+        {
+            _currentSearchText = SearchTextBox?.Text?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(_currentSearchText))
+            {
+                foreach (var request in _allRequests)
+                {
+                    request.MatchCount = 0;
+                    request.HasListingMatch = false;
+                }
+                return;
+            }
+
+            using var context = new ProductCheckerDbContext();
+            var searchLower = _currentSearchText.ToLower();
+
+            var matchCountsByRequestInfoId = context.ProductListings
+                .Where(l => l.RequestInfoId > 0 && (
+                    (l.ListingId ?? string.Empty).ToLower().Contains(searchLower) ||
+                    (l.CaseNumber ?? string.Empty).ToLower().Contains(searchLower) ||
+                    (l.Platform ?? string.Empty).ToLower().Contains(searchLower) ||
+                    (l.Url ?? string.Empty).ToLower().Contains(searchLower) ||
+                    (l.UrlStatus ?? string.Empty).ToLower().Contains(searchLower) ||
+                    (l.ErrorDetail ?? string.Empty).ToLower().Contains(searchLower) ||
+                    (l.Note ?? string.Empty).ToLower().Contains(searchLower)))
+                .GroupBy(l => l.RequestInfoId)
+                .Select(g => new { RequestInfoId = g.Key, Count = g.Count() })
+                .ToList()
+                .ToDictionary(x => x.RequestInfoId, x => x.Count);
+
+            foreach (var request in _allRequests)
+            {
+                if (matchCountsByRequestInfoId.TryGetValue(request.RequestInfoId, out var count))
+                {
+                    request.MatchCount = count;
+                    request.HasListingMatch = count > 0;
+                }
+                else
+                {
+                    request.MatchCount = 0;
+                    request.HasListingMatch = false;
+                }
+            }
+        }
+
+        private void UpdateRequestCountText()
+        {
+            if (_requestsView == null)
+            {
+                return;
+            }
+
+            _currentSearchText = SearchTextBox?.Text?.Trim() ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(_currentSearchText))
+            {
+                int pendingRequests = _allRequests.Count(r => r.Status == RequestStatus.PENDING);
+                RequestCountText.Text = $"({pendingRequests} pending)";
+                return;
+            }
+
+            int filteredCount = _requestsView.Cast<object>().Count();
             RequestCountText.Text = $"({filteredCount} requests)";
         }
 
@@ -774,9 +932,9 @@ namespace ProductCheckerV2
 
             try
             {
-                using var context = new ProductCheckerV2DbContext();
+                using var context = new ProductCheckerDbContext();
 
-                var rescanRequest = new Requests
+                var rescanRequest = new Request
                 {
                     RequestInfoId = _selectedRequest.RequestInfoId,
                     Status = RequestStatus.PENDING,
@@ -784,7 +942,7 @@ namespace ProductCheckerV2
                     CreatedAt = DateTime.Now
                 };
 
-                IQueryable<ProductListings> listingsQuery = context.ProductListings
+                IQueryable<ProductListing> listingsQuery = context.ProductListings
                     .Where(l => l.RequestInfoId == _selectedRequest.RequestInfoId);
 
                 var listings = listingsQuery.ToList();
@@ -922,7 +1080,7 @@ namespace ProductCheckerV2
         {
             try
             {
-                using var context = new ProductCheckerV2DbContext();
+                using var context = new ProductCheckerDbContext();
 
                 // First get the RequestInfoId for this request
                 var request = context.Requests
@@ -1255,7 +1413,7 @@ namespace ProductCheckerV2
     }
 
     // View Models
-    public class RequestViewModel
+    public class RequestViewModel : INotifyPropertyChanged
     {
         public int Id { get; set; }
         public int RequestInfoId { get; set; }
@@ -1265,6 +1423,46 @@ namespace ProductCheckerV2
         public DateTime CreatedAt { get; set; }
         public int ListingsCount { get; set; }
         public SolidColorBrush StatusBrush { get; set; }
+        public int Priority { get; set; }
+        public bool IsHighPriority { get; set; }
+        private int _matchCount;
+        public int MatchCount
+        {
+            get => _matchCount;
+            set
+            {
+                if (_matchCount == value)
+                {
+                    return;
+                }
+
+                _matchCount = value;
+                OnPropertyChanged(nameof(MatchCount));
+            }
+        }
+
+        private bool _hasListingMatch;
+        public bool HasListingMatch
+        {
+            get => _hasListingMatch;
+            set
+            {
+                if (_hasListingMatch == value)
+                {
+                    return;
+                }
+
+                _hasListingMatch = value;
+                OnPropertyChanged(nameof(HasListingMatch));
+            }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        private void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
     }
 
     public class ListingViewModel

@@ -259,6 +259,149 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
 
+        <!-- Filter TextBox Style -->
+        <Style x:Key="FilterTextBox" TargetType="TextBox">
+            <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+        </Style>
+
+        <!-- Filter Checkbox Style -->
+        <Style x:Key="FilterCheckBox" TargetType="CheckBox">
+            <Setter Property="FontFamily" Value="{StaticResource AppFont}"/>
+            <Setter Property="FontSize" Value="13.5"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+            <Setter Property="Margin" Value="0,6,0,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border x:Name="Box"
+                                    Width="18"
+                                    Height="18"
+                                    CornerRadius="4"
+                                    Background="White"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,10,0">
+                                <Path x:Name="CheckMark"
+                                      Data="M 3.5 9 L 7.5 12.5 L 14.5 5.5"
+                                      Stroke="White"
+                                      StrokeThickness="2"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      Visibility="Collapsed"/>
+                            </Border>
+                            <ContentPresenter Grid.Column="1"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter TargetName="Box" Property="Background" Value="#EEF2FF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Box" Property="Background" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Selected Filter Remove Button -->
+        <Style x:Key="SelectedFilterRemoveButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Background" Value="#F1F5F9"/>
+            <Setter Property="Foreground" Value="#475569"/>
+            <Setter Property="Margin" Value="10,0,0,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="#E2E8F0"
+                                BorderThickness="1"
+                                CornerRadius="11">
+                            <Path x:Name="icon"
+                                  Data="M 6 6 L 16 16 M 16 6 L 6 16"
+                                  Stroke="{TemplateBinding Foreground}"
+                                  StrokeThickness="2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#FEE2E2"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#FCA5A5"/>
+                                <Setter Property="Foreground" Value="#DC2626"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#FECACA"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Upload Clear Button -->
+        <Style x:Key="UploadClearButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#FEE2E2"/>
+            <Setter Property="Foreground" Value="#991B1B"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Width" Value="72"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="#FCA5A5"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#FECACA"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#FCA5A5"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Status Indicator -->
         <Style x:Key="StatusIndicator" TargetType="Border">
             <Setter Property="Width" Value="12"/>
@@ -346,8 +489,24 @@
                                FontWeight="Bold"
                                Foreground="{StaticResource TextPrimaryBrush}"
                                VerticalAlignment="Center"/>
+                                        <StackPanel x:Name="StageIndicatorPanel"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed">
+                        <TextBlock Text="|"
+                                   FontWeight="Medium"
+                                   FontSize="20"
+                                   Margin="10,0,0,5"
+                                   Foreground="{StaticResource TextLightBrush}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock x:Name="StageIndicatorText" Text="Stage"
+                                   FontSize="13"
+                                   FontWeight="Medium"
+                                   Margin="10,0,0,0"
+                                   Foreground="{StaticResource TextLightBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
                 </StackPanel>
-
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             HorizontalAlignment="Right"
@@ -362,6 +521,85 @@
                                   Style="{StaticResource NavToggleButtonStyle}"
                                   Click="NavRequestsButton_Click"/>
                 </StackPanel>
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="20,0,-15,0">
+
+                    <ToggleButton x:Name="SettingsToggleButton"
+                                  Width="38"
+                                  Height="34"
+                                  Background="Transparent"
+                                  Foreground="{StaticResource TextPrimaryBrush}"
+                                  BorderBrush="Transparent"
+                                  BorderThickness="1"
+                                  Cursor="Hand"
+                                  Click="SettingsToggleButton_Click"
+                                  ToolTip="Database settings">
+                        <TextBlock Text="⚙"
+                                   FontSize="16"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Center"/>
+                    </ToggleButton>
+
+                    <Popup x:Name="EnvironmentSettingsPopup"
+                           PlacementTarget="{Binding ElementName=SettingsToggleButton}"
+                           Placement="Bottom"
+                           StaysOpen="False"
+                           AllowsTransparency="True"
+                           PopupAnimation="Fade"
+                           Closed="EnvironmentSettingsPopup_Closed">
+                        <Border Background="White"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="12"
+                                Padding="16"
+                                Margin="0,8,0,0"
+                                MinWidth="240">
+                            <StackPanel>
+                                <TextBlock Text="Database Settings"
+                                           FontWeight="Bold"
+                                           FontSize="14"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           Margin="0,0,0,12"/>
+
+                                <TextBlock Text="Password"
+                                           FontSize="12.5"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Margin="0,0,0,4"/>
+                                <PasswordBox x:Name="EnvironmentPasswordBox"
+                                             Height="32"
+                                             Padding="8"
+                                             Margin="0,0,0,10"/>
+
+                                <TextBlock Text="Environment"
+                                           FontSize="12.5"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           Margin="0,0,0,4"/>
+                                <ComboBox x:Name="SettingsEnvironmentComboBox"
+                                          Height="34"
+                                          SelectionChanged="EnvironmentComboBox_SelectionChanged">
+                                    <ComboBoxItem Content="Stage" />
+                                    <ComboBoxItem Content="Live" />
+                                </ComboBox>
+
+                                <StackPanel Orientation="Horizontal"
+                                            HorizontalAlignment="Right"
+                                            Margin="0,12,0,0">
+                                    <Button Content="Apply"
+                                            Style="{StaticResource PrimaryButton}"
+                                            Padding="14,8"
+                                            Click="ApplyEnvironmentSettingsButton_Click"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
+                </StackPanel>
+
+                                
+
+                
             </Grid>
         </Border>
 
@@ -481,6 +719,84 @@
             </Grid>
         </Border>
 
+        <!-- Custom File Name Modal (Filters in Artemis) -->
+        <Border x:Name="FileNameModal" Grid.RowSpan="2"
+                Width="500"
+                Height="280"
+                Background="{StaticResource ModalBackgroundBrush}"
+                CornerRadius="16"
+                Panel.ZIndex="1001"
+                Visibility="Collapsed"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="30"
+                                ShadowDepth="0"
+                                Opacity="0.2"
+                                Color="#000000"/>
+            </Border.Effect>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="70"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="70"/>
+                </Grid.RowDefinitions>
+
+                <!-- Modal Header -->
+                <Border Grid.Row="0"
+                        Background="{StaticResource InfoModalHeaderBrush}"
+                        CornerRadius="16,16,0,0">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                        <TextBlock Text="📝"
+                                   FontSize="22"
+                                   Margin="0,0,8,0"/>
+                        <TextBlock Text="Custom File Name"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Modal Content -->
+                <StackPanel Grid.Row="1"
+                            Margin="30,0,30,0"
+                            VerticalAlignment="Center">
+                    <TextBlock Text="Enter a file name for this request (optional)."
+                               FontSize="14"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Margin="0,0,0,10"/>
+                    <TextBox x:Name="ModalCustomFileNameTextBox"
+                             Style="{StaticResource FilterTextBox}"
+                             Margin="0,0,0,6"
+                             ToolTip="Leave blank to use the default name"/>
+                    <TextBlock Text="Leaving it blank will use the default name."
+                               FontSize="12.5"
+                               Foreground="{StaticResource TextLightBrush}"/>
+                </StackPanel>
+
+                <!-- Modal Footer -->
+                <Border Grid.Row="2"
+                        Background="#F7FAFC"
+                        CornerRadius="0,0,16,16"
+                        Padding="0,0,20,0">
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right">
+                        <Button x:Name="CancelFileNameButton"
+                                Content="Cancel"
+                                Style="{StaticResource SecondaryModalButton}"
+                                Click="CancelFileNameButton_Click"/>
+                        <Button x:Name="ConfirmFileNameButton"
+                                Content="Continue"
+                                Style="{StaticResource SuccessModalButton}"
+                                Click="ConfirmFileNameButton_Click"
+                                Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
         <!-- Success Modal -->
         <Border x:Name="SuccessModal" Grid.RowSpan="2"
                 Width="450"
@@ -568,7 +884,7 @@
         <!-- Error Modal -->
         <Border x:Name="ErrorModal" Grid.RowSpan="2"
                 Width="500"
-                Height="320"
+                Height="700"
                 Background="{StaticResource ModalBackgroundBrush}"
                 CornerRadius="16"
                 Panel.ZIndex="1001"
@@ -597,9 +913,10 @@
                                 VerticalAlignment="Center">
                         <TextBlock Text="❌"
                                    FontSize="28"
-                                   Margin="0,0,15,0"/>
+                                   Margin="0,0,5,0"/>
                         <TextBlock Text="Processing Error"
                                    FontSize="22"
+                                   Margin="0,5,0,0"
                                    FontWeight="SemiBold"
                                    Foreground="White"/>
                     </StackPanel>
@@ -613,6 +930,7 @@
                         <Ellipse Fill="#FEE2E2"/>
                         <TextBlock Text="⚠️"
                                    FontSize="24"
+                                   Margin="0,0,0,10"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"/>
                     </Grid>
@@ -629,7 +947,7 @@
                     <Border Background="#FEE2E2"
                             CornerRadius="8"
                             Padding="12"
-                            MaxHeight="80">
+                            MaxHeight="370">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <TextBlock x:Name="ErrorDetails"
                                        Text=""
@@ -667,112 +985,312 @@
                         <ColumnDefinition Width="420"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-
                     <!-- Left Panel: Upload Section -->
                     <Border Grid.Column="0" Margin="0,0,20,20" Style="{StaticResource ModernCard}">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
-                                <Grid Width="32" Height="32" Margin="0,0,12,0">
-                                    <Ellipse Fill="{StaticResource PrimaryBrush}" Opacity="0.1"/>
-                                    <TextBlock Text="📤"
-                                             FontSize="16" 
-                                             Margin="0,0,0,5"
-                                             HorizontalAlignment="Center"
-                                             VerticalAlignment="Center" Height="21"/>
-                                </Grid>
-                                <TextBlock Style="{StaticResource SectionHeader}" Text="File Upload" Margin="0"/>
-                            </StackPanel>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
 
-                            <!-- Drag & Drop Area -->
-                            <Border x:Name="UploadArea" 
-                                    Background="{StaticResource HoverBrush}"
-                                    BorderBrush="{StaticResource BorderBrush}"
-                                    BorderThickness="2"
-                                    CornerRadius="12"
-                                    Padding="40,35"
-                                    Margin="0,0,0,20"
-                                    Cursor="Hand">
-                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                    <Grid Width="72" Height="72" Margin="0,0,0,20">
-                                        <Ellipse Fill="{StaticResource PrimaryBrush}" Opacity="0.08"/>
-                                        <TextBlock Text="📁" 
-                                                 FontSize="32" 
-                                                 Margin="0,0,0,5"
-                                                 HorizontalAlignment="Center"
-                                                 VerticalAlignment="Center"/>
-                                    </Grid>
-                                    <TextBlock Text="Drag &amp; Drop Excel File" 
-                                             FontSize="15" 
-                                             FontWeight="Bold"
-                                             Foreground="{StaticResource TextPrimaryBrush}"
-                                             HorizontalAlignment="Center"
-                                             Margin="0,0,0,8"/>
-                                    <TextBlock Text=".xlsx, .xls, .xlsm formats supported" 
-                                             FontSize="13"
-                                             Foreground="{StaticResource TextLightBrush}"
-                                             HorizontalAlignment="Center"
-                                             Margin="0,0,0,16"/>
-                                    <Button x:Name="BrowseButton" 
-                                            Content="Browse Files"
-                                            Style="{StaticResource PrimaryButton}"
-                                            Click="BrowseButton_Click"
-                                            Width="140"/>
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                
+
+                                <StackPanel Grid.Column="1"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center">
+                                    <RadioButton x:Name="FilterModeRadio"
+                                                 Content="Filters"
+                                                 GroupName="InputMode"
+                                                 IsChecked="True"
+                                                 Margin="0,0,12,0"
+                                                 Checked="ModeRadio_Checked"/>
+                                    <RadioButton x:Name="UploadModeRadio"
+                                                 Content="Upload"
+                                                 GroupName="InputMode"
+                                                 Checked="ModeRadio_Checked"/>
                                 </StackPanel>
-                            </Border>
 
-                            <!-- File Info Card -->
-                            <Border Style="{StaticResource FlatCard}">
-                                <StackPanel>
-                                    <TextBlock Style="{StaticResource SubHeader}" Text="File Information"/>
+                                                
 
-                                    <!-- Selected File -->
-                                    <StackPanel Margin="0,0,0,16">
-                                        <TextBlock Text="Selected File" 
-                                                 FontSize="12.5"
-                                                 FontWeight="Bold"
-                                                 Foreground="{StaticResource TextLightBrush}"
-                                                 Margin="0,0,0,6"/>
-                                        <Grid>
-                                            <Border Background="{StaticResource BorderLightBrush}" 
-                                                    CornerRadius="8"
-                                                    Padding="14">
-                                                <TextBlock x:Name="FilePathText" 
-                                                         Text="No file selected"
-                                                         FontSize="13.5"
-                                                         Foreground="{StaticResource TextSecondaryBrush}"
-                                                         TextTrimming="CharacterEllipsis"/>
-                                            </Border>
-                                            <Button x:Name="ClearButton" 
-                                                    Content="Clear"
-                                                    Style="{StaticResource SecondaryButton}"
-                                                    HorizontalAlignment="Right"
-                                                    Width="80"
-                                                    Click="ClearButton_Click"
-                                                    Margin="5"/>
-                                        </Grid>
-                                    </StackPanel>
+                
+                            </Grid>
 
-                                    <!-- File Details -->
-                                    <ItemsControl x:Name="FileInfoItems">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                                    <Border Style="{StaticResource StatusIndicator}" 
-                                                            Background="{Binding Color}"/>
-                                                    <TextBlock Text="{Binding Text}" 
-                                                             FontSize="13"
-                                                             Foreground="{StaticResource TextSecondaryBrush}"
-                                                             VerticalAlignment="Center"/>
+                            <Grid Grid.Row="1">
+                                <!-- Filters Panel -->
+                                <Grid x:Name="FiltersPanel">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+
+                                    <!-- Selected Filters (always visible) -->
+                                    <Border Grid.Row="0" Style="{StaticResource FlatCard}" Margin="0,0,0,12">
+                                        <StackPanel Margin="0,-11,0,-11">
+                                            <Grid Margin="0,0,0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Style="{StaticResource SubHeader}"
+                                                           VerticalAlignment="Top"
+                                                           FontSize="15"
+                                                           Text="Selected Filters" Margin="0,5,0,0"/>
+                                                <StackPanel Grid.Column="1"
+                                                            Margin="0,0,-10,0"
+                                                            Orientation="Horizontal"
+                                                            HorizontalAlignment="Right"
+                                                            VerticalAlignment="Center">
+                                                    <Button Content="Preview Listings"
+                                                            Style="{StaticResource PrimaryButton}"
+                                                            Padding="16,8"
+                                                            FontSize="10"
+                                                            Margin="0,0,8,0"
+                                                            Click="PreviewListingsButton_Click"/>
+                                                    <Button Content="Clear"
+                                                            Style="{StaticResource SecondaryButton}"
+                                                            Padding="14,8"
+                                                            FontSize="10"
+                                                            Click="ClearButton_Click"/>
                                                 </StackPanel>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
+                                            </Grid>
+                                            
+                                            <ListBox x:Name="SelectedFiltersListBox"
+                                                     Height="80"
+                                                     BorderBrush="{StaticResource BorderBrush}"
+                                                     BorderThickness="1">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{Binding Display}"
+                                                                       VerticalAlignment="Center"
+                                                                       Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                            <Button Grid.Column="1"
+                                                                    Content="x"
+                                                                    Style="{StaticResource SelectedFilterRemoveButton}"
+                                                                    Click="RemoveSelectedFilter_Click"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+                                            <TextBlock x:Name="SelectedCountsText"
+                                               FontSize="12.5"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               Margin="0,5,0,0"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel>
+                                            <!-- Filters -->
+                                            <Border Style="{StaticResource FlatCard}">
+                                                <StackPanel>
+                                                    <Expander Header="Campaigns" IsExpanded="True" Margin="0,0,0,8">
+                                                        <StackPanel>
+                                                            <TextBox x:Name="CampaignSearchTextBox"
+                                                                     Style="{StaticResource FilterTextBox}"
+                                                                     TextChanged="CampaignSearchTextBox_TextChanged"
+                                                                     ToolTip="Search campaigns"/>
+                                                            <ListBox x:Name="CampaignListBox"
+                                                                     Height="120"
+                                                                     BorderBrush="{StaticResource BorderBrush}"
+                                                                     BorderThickness="1">
+                                                                <ListBox.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <CheckBox Content="{Binding Display}"
+                                                                                  Style="{StaticResource FilterCheckBox}"
+                                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                                  Checked="FilterOptionCheckBox_Changed"
+                                                                                  Unchecked="FilterOptionCheckBox_Changed"/>
+                                                                    </DataTemplate>
+                                                                </ListBox.ItemTemplate>
+                                                            </ListBox>
+                                                        </StackPanel>
+                                                    </Expander>
+
+                                                    <Expander Header="Cases" IsExpanded="False" Margin="0,0,0,8">
+                                                        <StackPanel>
+                                                            <TextBox x:Name="CaseSearchTextBox"
+                                                                     Style="{StaticResource FilterTextBox}"
+                                                                     TextChanged="CaseSearchTextBox_TextChanged"
+                                                                     ToolTip="Search cases"/>
+                                                            <ListBox x:Name="CaseListBox"
+                                                                     Height="120"
+                                                                     BorderBrush="{StaticResource BorderBrush}"
+                                                                     BorderThickness="1">
+                                                                <ListBox.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <CheckBox Content="{Binding Display}"
+                                                                                  Style="{StaticResource FilterCheckBox}"
+                                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                                  Checked="FilterOptionCheckBox_Changed"
+                                                                                  Unchecked="FilterOptionCheckBox_Changed"/>
+                                                                    </DataTemplate>
+                                                                </ListBox.ItemTemplate>
+                                                            </ListBox>
+                                                        </StackPanel>
+                                                    </Expander>
+
+                                                    <Expander Header="Platforms" IsExpanded="False" Margin="0,0,0,8">
+                                                        <StackPanel>
+                                                            <TextBox x:Name="PlatformSearchTextBox"
+                                                                     Style="{StaticResource FilterTextBox}"
+                                                                     TextChanged="PlatformSearchTextBox_TextChanged"
+                                                                     ToolTip="Search platforms"/>
+                                                            <ListBox x:Name="PlatformListBox"
+                                                                     Height="120"
+                                                                     BorderBrush="{StaticResource BorderBrush}"
+                                                                     BorderThickness="1">
+                                                                <ListBox.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <CheckBox Content="{Binding Display}"
+                                                                                  Style="{StaticResource FilterCheckBox}"
+                                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                                  Checked="FilterOptionCheckBox_Changed"
+                                                                                  Unchecked="FilterOptionCheckBox_Changed"/>
+                                                                    </DataTemplate>
+                                                                </ListBox.ItemTemplate>
+                                                            </ListBox>
+                                                        </StackPanel>
+                                                    </Expander>
+
+                                                    <Expander Header="Status" IsExpanded="False">
+                                                        <StackPanel>
+                                                            <TextBox x:Name="QflagSearchTextBox"
+                                                                     Style="{StaticResource FilterTextBox}"
+                                                                     TextChanged="QflagSearchTextBox_TextChanged"
+                                                                     ToolTip="Search Status"/>
+                                                            <ListBox x:Name="QflagListBox"
+                                                                     Height="120"
+                                                                     BorderBrush="{StaticResource BorderBrush}"
+                                                                     BorderThickness="1">
+                                                                <ListBox.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <CheckBox Content="{Binding Display}"
+                                                                                  Style="{StaticResource FilterCheckBox}"
+                                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                                  Checked="FilterOptionCheckBox_Changed"
+                                                                                  Unchecked="FilterOptionCheckBox_Changed"/>
+                                                                    </DataTemplate>
+                                                                </ListBox.ItemTemplate>
+                                                            </ListBox>
+                                                        </StackPanel>
+                                                    </Expander>
+
+                                                </StackPanel>
+                                            </Border>
+
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </Grid>
+
+                                <!-- Upload Panel -->
+                                <Grid x:Name="UploadPanel" Visibility="Collapsed">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                        <StackPanel>
+                                            <!-- Drag & Drop Area -->
+                                            <Border x:Name="UploadArea" 
+                                                    Background="{StaticResource HoverBrush}"
+                                                    BorderBrush="{StaticResource BorderBrush}"
+                                                    BorderThickness="2"
+                                                    CornerRadius="12"
+                                                    Padding="40,35"
+                                                    Margin="0,0,0,20"
+                                                    Cursor="Hand">
+                                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Grid Width="72" Height="72" Margin="0,0,0,20">
+                                                        <Ellipse Fill="{StaticResource PrimaryBrush}" Opacity="0.08"/>
+                                                        <TextBlock Text="&#xE8E5;"
+                                                                 FontFamily="Segoe MDL2 Assets"
+                                                                 FontSize="34" 
+                                                                 Margin="2,0,0,0"
+                                                                 HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                    <TextBlock Text="Drag &amp; Drop Excel File" 
+                                                             FontSize="15" 
+                                                             FontWeight="Bold"
+                                                             Foreground="{StaticResource TextPrimaryBrush}"
+                                                             HorizontalAlignment="Center"
+                                                             Margin="0,0,0,8"/>
+                                                    <TextBlock Text=".xlsx, .xls, .xlsm formats supported" 
+                                                             FontSize="13"
+                                                             Foreground="{StaticResource TextLightBrush}"
+                                                             HorizontalAlignment="Center"
+                                                             Margin="0,0,0,16"/>
+                                                    <Button x:Name="BrowseButton" 
+                                                            Content="Browse Files"
+                                                            Style="{StaticResource PrimaryButton}"
+                                                            Click="UploadBrowseButton_Click"
+                                                            Width="140"/>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- File Info Card -->
+                                            <Border Style="{StaticResource FlatCard}">
+                                                <StackPanel>
+                                                    <TextBlock Style="{StaticResource SubHeader}" Text="File Information"/>
+
+                                                    <StackPanel Margin="0,0,0,16">
+                                                        <TextBlock Text="Selected File" 
+                                                                 FontSize="12.5"
+                                                                 FontWeight="Bold"
+                                                                 Foreground="{StaticResource TextLightBrush}"
+                                                                 Margin="0,0,0,6"/>
+                                                        <Grid>
+                                                            <Border Background="{StaticResource BorderLightBrush}" 
+                                                                    CornerRadius="8"
+                                                                    Padding="14">
+                                                                <TextBlock x:Name="UploadFilePathText" 
+                                                                         Text="No file selected"
+                                                                         FontSize="13.5"
+                                                                         Foreground="{StaticResource TextSecondaryBrush}"
+                                                                         TextTrimming="CharacterEllipsis"/>
+                                                            </Border>
+                                                            <Button x:Name="ClearButton" 
+                                                                    Content="Clear"
+                                                                    Style="{StaticResource UploadClearButtonStyle}"
+                                                                    HorizontalAlignment="Right"
+                                                                    Click="ClearButton_Click"
+                                                                    Margin="5"/>
+                                                        </Grid>
+                                                    </StackPanel>
+
+                                                    <ItemsControl x:Name="UploadFileInfoItems">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                                    <Border Style="{StaticResource StatusIndicator}" 
+                                                                            Background="{Binding Color}"/>
+                                                                    <TextBlock Text="{Binding Text}" 
+                                                                             FontSize="13"
+                                                                             Foreground="{StaticResource TextSecondaryBrush}"
+                                                                             VerticalAlignment="Center"/>
+                                                                </StackPanel>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Grid>
+                        </Grid>
                     </Border>
 
                     <!-- Right Panel: Data Preview -->
+
                     <Border Grid.Column="1" Style="{StaticResource ModernCard}">
                         <Grid>
                             <Grid.RowDefinitions>
@@ -798,7 +1316,7 @@
                                          VerticalAlignment="Center"/>
                                 </Grid>
 
-                                <!-- Left side: Title and stats -->
+                                                                <!-- Left side: Title and stats -->
                                 <StackPanel Grid.Column="1">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Style="{StaticResource SectionHeader}" Text="Data Preview" Margin="0"/>
@@ -835,7 +1353,7 @@
                                 BorderBrush="{StaticResource BorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="12"
-                                Margin="0,0,0,20">
+                                Margin="0,0,0,0">
                                 <Grid>
                                     <!-- Empty State -->
                                     <Border x:Name="EmptyState" 
@@ -858,7 +1376,7 @@
                                                  Foreground="{StaticResource TextSecondaryBrush}"
                                                  HorizontalAlignment="Center"
                                                  Margin="0,0,0,8"/>
-                                            <TextBlock Text="Upload an Excel file to preview data" 
+                                            <TextBlock Text="Select filters and preview listings" 
                                                  FontSize="14"
                                                  Foreground="{StaticResource TextLightBrush}"
                                                  HorizontalAlignment="Center"/>
@@ -986,4 +1504,16 @@
         </Grid>
     </Grid>
 </Window>
+
+
+
+
+
+
+
+
+
+
+
+
 

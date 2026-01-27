@@ -3,14 +3,14 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ProductCheckerV2.Database.Models
 {
-    [Table("platforms")]
-    public class Platform
+    [Table("qflag")]
+    public class Qflag
     {
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
-        [Column("name")]
-        public string? Name { get; set; }
+        [Column("label")]
+        public string? Label { get; set; }
 
         [Column("status")]
         public int Status { get; set; }

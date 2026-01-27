@@ -7,6 +7,7 @@ using ProductCheckerV2.Database.Models;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -20,6 +21,7 @@ using System.Windows.Media.Animation;
 using DocumentFormat.OpenXml.Drawing.Charts;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
+using System.Windows.Data;
 
 namespace ProductCheckerV2
 {
@@ -28,12 +30,25 @@ namespace ProductCheckerV2
         private List<UploadedProductData> _uploadedData = new List<UploadedProductData>();
         private BackgroundWorker _processingWorker;
         private string _applicationName = "";
-        private bool _isDragOver = false;
         private string _currentFilePath = string.Empty;
         private int _currentRequestId = 0;
         private int _currentRecordsProcessed = 0;
-        private static List<Platform> _platformsCache;
+        private static List<CrawlerPlatform> _platformsCache;
         private bool _isFileValidationActive = false;
+        private bool _isDragOver = false;
+        private bool _useFilterMode = true;
+        private List<FilterOption> _campaignOptions = new List<FilterOption>();
+        private List<FilterOption> _caseOptions = new List<FilterOption>();
+        private List<FilterOption> _platformOptions = new List<FilterOption>();
+        private List<FilterOption> _qflagOptions = new List<FilterOption>();
+        private ICollectionView _campaignsView;
+        private ICollectionView _casesView;
+        private ICollectionView _platformsView;
+        private ICollectionView _qflagsView;
+        private ObservableCollection<SelectedFilterItem> _selectedFilters = new ObservableCollection<SelectedFilterItem>();
+        private string _customFileName = string.Empty;
+        private bool _isEnvironmentSelectorInitialized = false;
+        private string _pendingEnvironment = string.Empty;
 
         public MainWindow()
         {
@@ -43,15 +58,21 @@ namespace ProductCheckerV2
             SetupDragDrop();
         }
 
-        private void InitializeApp()
+                private void InitializeApp()
         {
             try
             {
-                this.Title = _applicationName;
+                _applicationName = ConfigurationManager.ApplicationName;
                 this.Icon = new BitmapImage(new Uri("Assets/Logo.ico".AbsPath()));
                 LogoImage.Source = new BitmapImage(new Uri("Assets/Logo.ico".AbsPath()));
+
+                InitializeEnvironmentSelector();
+                UpdateEnvironmentIndicator();
                 InitializeDatabase();
-                UpdateStatusBar("Ready - Select or drag & drop Excel file");
+                LoadFilterOptions();
+                SetInputMode(FilterModeRadio?.IsChecked == true);
+                UpdateSelectionSummary();
+                UpdateStatusBar("Ready");
                 UpdateStatsDisplay();
                 UpdateDataGridVisibility(false);
                 ShowUploadPage();
@@ -63,11 +84,182 @@ namespace ProductCheckerV2
             }
         }
 
+        private void InitializeEnvironmentSelector()
+        {
+            var configuredEnvironment = ConfigurationManager.GetEnvironment();
+            ConfigurationManager.SetEnvironment(configuredEnvironment);
+            SetEnvironmentComboBoxSelection(configuredEnvironment);
+            _pendingEnvironment = configuredEnvironment;
+            _isEnvironmentSelectorInitialized = true;
+        }
+
+        private void UpdateEnvironmentIndicator()
+        {
+            var environment = ConfigurationManager.GetEnvironment();
+            var isStage = environment.Equals("Stage", StringComparison.OrdinalIgnoreCase);
+
+            if (StageIndicatorPanel != null)
+            {
+                StageIndicatorPanel.Visibility = isStage ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (StageIndicatorText != null)
+            {
+                StageIndicatorText.Text = environment;
+            }
+        }
+
+        private void SetEnvironmentComboBoxSelection(string environment)
+        {
+            var targetEnvironment = environment.Equals("Live", StringComparison.OrdinalIgnoreCase)
+                ? "Live"
+                : "Stage";
+
+            var previousGuardState = _isEnvironmentSelectorInitialized;
+            _isEnvironmentSelectorInitialized = false;
+
+            foreach (var item in SettingsEnvironmentComboBox.Items.OfType<ComboBoxItem>())
+            {
+                var itemValue = item.Content?.ToString();
+                item.IsSelected = string.Equals(itemValue, targetEnvironment, StringComparison.OrdinalIgnoreCase);
+            }
+
+            _isEnvironmentSelectorInitialized = previousGuardState;
+        }
+
+        private void ApplyEnvironmentChange(string selectedEnvironment)
+        {
+            var previousEnvironment = ConfigurationManager.GetEnvironment();
+
+            try
+            {
+                ConfigurationManager.SetEnvironment(selectedEnvironment);
+
+                _platformsCache = null;
+                _selectedFilters.Clear();
+
+                InitializeDatabase();
+                LoadFilterOptions();
+                UpdateSelectionSummary();
+                UpdateStatsDisplay();
+
+                UpdateStatusBar($"Environment: {selectedEnvironment}");
+                UpdateEnvironmentIndicator();
+            }
+            catch (Exception ex)
+            {
+                ConfigurationManager.SetEnvironment(previousEnvironment);
+                SetEnvironmentComboBoxSelection(previousEnvironment);
+                UpdateEnvironmentIndicator();
+
+                MessageBox.Show($"Failed to switch environment to '{selectedEnvironment}'.\n\n{ex.Message}",
+                    "Environment Switch Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void EnvironmentComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!_isEnvironmentSelectorInitialized)
+            {
+                return;
+            }
+
+            var selectedEnvironment = (SettingsEnvironmentComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString();
+            if (string.IsNullOrWhiteSpace(selectedEnvironment))
+            {
+                return;
+            }
+
+            _pendingEnvironment = selectedEnvironment;
+        }
+
+        private void SettingsToggleButton_Click(object sender, RoutedEventArgs e)
+        {
+            var isOpen = SettingsToggleButton?.IsChecked == true;
+
+            if (isOpen)
+            {
+                var currentEnvironment = ConfigurationManager.GetEnvironment();
+                SetEnvironmentComboBoxSelection(currentEnvironment);
+                _pendingEnvironment = currentEnvironment;
+
+                if (EnvironmentPasswordBox != null)
+                {
+                    EnvironmentPasswordBox.Password = string.Empty;
+                    EnvironmentPasswordBox.Focus();
+                }
+            }
+
+            if (EnvironmentSettingsPopup != null)
+            {
+                EnvironmentSettingsPopup.IsOpen = isOpen;
+            }
+        }
+
+        private void EnvironmentSettingsPopup_Closed(object sender, EventArgs e)
+        {
+            if (SettingsToggleButton != null)
+            {
+                SettingsToggleButton.IsChecked = false;
+            }
+        }
+
+        private void ApplyEnvironmentSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isEnvironmentSelectorInitialized)
+            {
+                return;
+            }
+
+            var selectedEnvironment = _pendingEnvironment;
+            if (string.IsNullOrWhiteSpace(selectedEnvironment))
+            {
+                selectedEnvironment = (SettingsEnvironmentComboBox.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(selectedEnvironment))
+            {
+                MessageBox.Show("Please select an environment first.",
+                    "Environment Required", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var expectedPassword = ConfigurationManager.GetEnvironmentSwitchPassword();
+            var enteredPassword = EnvironmentPasswordBox?.Password ?? string.Empty;
+
+            if (!string.Equals(enteredPassword, expectedPassword, StringComparison.Ordinal))
+            {
+                MessageBox.Show("Invalid password. Environment was not changed.",
+                    "Access Denied", MessageBoxButton.OK, MessageBoxImage.Warning);
+
+                if (EnvironmentPasswordBox != null)
+                {
+                    EnvironmentPasswordBox.Password = string.Empty;
+                    EnvironmentPasswordBox.Focus();
+                }
+                return;
+            }
+
+            if (!string.Equals(selectedEnvironment, ConfigurationManager.GetEnvironment(), StringComparison.OrdinalIgnoreCase))
+            {
+                ApplyEnvironmentChange(selectedEnvironment);
+            }
+
+            if (EnvironmentPasswordBox != null)
+            {
+                EnvironmentPasswordBox.Password = string.Empty;
+            }
+            if (EnvironmentSettingsPopup != null)
+            {
+                EnvironmentSettingsPopup.IsOpen = false;
+            }
+        }
+
         private void InitializeDatabase()
         {
             try
             {
-                using var context = new ProductCheckerV2DbContext();
+                using var context = new ProductCheckerDbContext();
                 context.Database.EnsureCreated();
 
                 if (context.Database.CanConnect())
@@ -82,16 +274,363 @@ namespace ProductCheckerV2
             }
         }
 
-        private void SetupDragDrop()
+        private void LoadFilterOptions()
         {
-            this.AllowDrop = true;
-            this.PreviewDragOver += MainWindow_PreviewDragOver;
-            this.PreviewDrop += MainWindow_PreviewDrop;
+            try
+            {
+                using var context = new ArtemisDbContext();
 
-            // Add drag/drop visual states
-            UploadArea.PreviewDragOver += UploadArea_PreviewDragOver;
-            UploadArea.PreviewDragLeave += UploadArea_PreviewDragLeave;
-            UploadArea.PreviewDrop += UploadArea_PreviewDrop;
+                _campaignOptions = context.Campaigns
+                    .Where(c => c.DeletedAt == null && c.Status == 1)
+                    .OrderBy(c => c.Name)
+                    .Select(c => new FilterOption
+                    {
+                        Id = c.Id,
+                        Display = string.IsNullOrWhiteSpace(c.Name) ? $"Campaign #{c.Id}" : c.Name
+                    })
+                    .ToList();
+
+                _caseOptions = context.Cases
+                    .Where(c => c.DeletedAt == null)
+                    .OrderBy(c => c.CaseNumber)
+                    .Select(c => new FilterOption
+                    {
+                        Id = c.Id,
+                        Display = string.IsNullOrWhiteSpace(c.CaseNumber) ? $"Case #{c.Id}" : c.CaseNumber
+                    })
+                    .ToList();
+
+                _platformOptions = context.Platforms
+                    .Where(p => p.DeletedAt == null && p.Status == 1)
+                    .OrderBy(p => p.Name)
+                    .Select(p => new FilterOption
+                    {
+                        Id = p.Id,
+                        Display = string.IsNullOrWhiteSpace(p.Name) ? $"Platform #{p.Id}" : p.Name
+                    })
+                    .ToList();
+
+                _qflagOptions = context.Qflag
+                    .Where(q => q.DeletedAt == null && q.Status == 1)
+                    .OrderBy(q => q.Label)
+                    .Select(q => new FilterOption
+                    {
+                        Id = q.Id,
+                        Display = string.IsNullOrWhiteSpace(q.Label) ? $"QFlag #{q.Id}" : q.Label
+                    })
+                    .ToList();
+
+                CampaignListBox.ItemsSource = _campaignOptions;
+                CaseListBox.ItemsSource = _caseOptions;
+                PlatformListBox.ItemsSource = _platformOptions;
+                QflagListBox.ItemsSource = _qflagOptions;
+                SelectedFiltersListBox.ItemsSource = _selectedFilters;
+
+                _campaignsView = CollectionViewSource.GetDefaultView(_campaignOptions);
+                _campaignsView.Filter = item => FilterOptionMatches(item, CampaignSearchTextBox.Text);
+                ConfigureFilterView(_campaignsView);
+
+                _casesView = CollectionViewSource.GetDefaultView(_caseOptions);
+                _casesView.Filter = item => FilterOptionMatches(item, CaseSearchTextBox.Text);
+                ConfigureFilterView(_casesView);
+
+                _platformsView = CollectionViewSource.GetDefaultView(_platformOptions);
+                _platformsView.Filter = item => FilterOptionMatches(item, PlatformSearchTextBox.Text);
+                ConfigureFilterView(_platformsView);
+
+                _qflagsView = CollectionViewSource.GetDefaultView(_qflagOptions);
+                _qflagsView.Filter = item => FilterOptionMatches(item, QflagSearchTextBox.Text);
+                ConfigureFilterView(_qflagsView);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading filters:\n\n{ex.Message}",
+                    "Filter Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private static bool FilterOptionMatches(object item, string searchText)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                return true;
+            }
+
+            if (item is FilterOption option)
+            {
+                return option.Display.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                       option.Id.ToString().Contains(searchText, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
+        private static void ConfigureFilterView(ICollectionView view)
+        {
+            view.SortDescriptions.Clear();
+            view.SortDescriptions.Add(new SortDescription(nameof(FilterOption.IsSelected), ListSortDirection.Descending));
+            view.SortDescriptions.Add(new SortDescription(nameof(FilterOption.Display), ListSortDirection.Ascending));
+
+            if (view is ICollectionViewLiveShaping liveView)
+            {
+                liveView.LiveSortingProperties.Clear();
+                liveView.LiveSortingProperties.Add(nameof(FilterOption.IsSelected));
+                liveView.LiveSortingProperties.Add(nameof(FilterOption.Display));
+                liveView.IsLiveSorting = true;
+            }
+        }
+
+        private void CampaignSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _campaignsView?.Refresh();
+        }
+
+        private void CaseSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _casesView?.Refresh();
+        }
+
+        private void PlatformSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _platformsView?.Refresh();
+        }
+
+        private void QflagSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            _qflagsView?.Refresh();
+        }
+
+        private void FilterOptionCheckBox_Changed(object sender, RoutedEventArgs e)
+        {
+            UpdateSelectionSummary();
+            RefreshFilterViews();
+        }
+
+        private void ModeRadio_Checked(object sender, RoutedEventArgs e)
+        {
+            SetInputMode(FilterModeRadio.IsChecked == true);
+        }
+
+        private void SetInputMode(bool useFilterMode)
+        {
+            _useFilterMode = useFilterMode;
+
+            if (FiltersPanel != null)
+            {
+                FiltersPanel.Visibility = useFilterMode ? Visibility.Visible : Visibility.Collapsed;
+            }
+            if (UploadPanel != null)
+            {
+                UploadPanel.Visibility = useFilterMode ? Visibility.Collapsed : Visibility.Visible;
+            }
+
+            UpdateStatusBar(useFilterMode
+                ? "Ready - Select filters and preview listings"
+                : "Ready - Upload Excel file");
+        }
+
+        private void RemoveSelectedFilter_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.DataContext is SelectedFilterItem item)
+            {
+                item.Option.IsSelected = false;
+                UpdateSelectionSummary();
+                RefreshFilterViews();
+            }
+        }
+
+        private void RefreshFilterViews()
+        {
+            _campaignsView?.Refresh();
+            _casesView?.Refresh();
+            _platformsView?.Refresh();
+            _qflagsView?.Refresh();
+        }
+
+        private async Task LoadPreviewListingsAsync()
+        {
+            if (!_useFilterMode)
+            {
+                return;
+            }
+
+            UpdateSelectionSummary();
+
+            var selectedCampaignIds = GetSelectedIds(_campaignOptions);
+            var selectedCaseIds = GetSelectedIds(_caseOptions);
+            var selectedPlatformIds = GetSelectedIds(_platformOptions);
+            var selectedQflagIds = GetSelectedIds(_qflagOptions);
+
+            if (selectedCampaignIds.Count == 0 &&
+                selectedCaseIds.Count == 0 &&
+                selectedPlatformIds.Count == 0 &&
+                selectedQflagIds.Count == 0)
+            {
+                MessageBox.Show("Please select at least one campaign, case, platform, or status.",
+                    "Missing Filters", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            BrowseButton.IsEnabled = false;
+            StartButton.IsEnabled = false;
+            UpdateStatusBar("Loading preview...");
+
+            try
+            {
+                var listings = await Task.Run(() =>
+                    QueryListings(selectedCampaignIds, selectedCaseIds, selectedPlatformIds, selectedQflagIds));
+
+                _uploadedData = listings;
+                DataGridPreview.ItemsSource = _uploadedData;
+                UpdateDataGridVisibility(_uploadedData.Count > 0);
+                RecordCountText.Text = $"{_uploadedData.Count} records loaded";
+                StartButton.IsEnabled = _uploadedData.Count > 0;
+
+                UpdateStatusBar(_uploadedData.Count > 0
+                    ? "Preview loaded"
+                    : "No listings found for the selected filters");
+                if (_uploadedData.Count == 0)
+                {
+                    MessageBox.Show("No listings found for the selected filters.",
+                        "No Results", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading preview:\n\n{ex.Message}",
+                    "Preview Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                BrowseButton.IsEnabled = true;
+            }
+        }
+
+        private static List<UploadedProductData> QueryListings(
+            List<int> campaignIds,
+            List<int> caseIds,
+            List<int> platformIds,
+            List<int> qflagIds)
+        {
+            using var context = new ArtemisDbContext();
+
+            var query = from listing in context.Listings
+                        join c in context.Cases on listing.CaseId equals c.Id
+                        join p in context.Platforms on listing.PlatformId equals p.Id
+                        join q in context.Qflag on listing.QfalgId equals q.Id
+                        where listing.DeletedAt == null &&
+                              c.DeletedAt == null &&
+                              p.DeletedAt == null &&
+                              q.DeletedAt == null
+                        select new
+                        {
+                            listing.Id,
+                            listing.CampaignId,
+                            listing.CaseId,
+                            listing.PlatformId,
+                            listing.QfalgId,
+                            CaseNumber = c.CaseNumber,
+                            PlatformName = p.Name,
+                            Url = listing.Url
+                        };
+
+            if (campaignIds.Count > 0)
+            {
+                query = query.Where(item => campaignIds.Contains(item.CampaignId));
+            }
+
+            if (caseIds.Count > 0)
+            {
+                query = query.Where(item => caseIds.Contains(item.CaseId));
+            }
+
+            if (platformIds.Count > 0)
+            {
+                query = query.Where(item => platformIds.Contains(item.PlatformId));
+            }
+
+            if (qflagIds.Count > 0)
+            {
+                query = query.Where(item => qflagIds.Contains(item.QfalgId));
+            }
+
+            return query.ToList()
+                .Select(item => new UploadedProductData
+                {
+                    ListingId = item.Id.ToString(),
+                    CaseNumber = item.CaseNumber,
+                    ProductUrl = item.Url ?? string.Empty,
+                    Platform = GetPlatformFromUrl(item.Url ?? string.Empty)
+                })
+                .ToList();
+        }
+
+        private static List<int> GetSelectedIds(List<FilterOption> options)
+        {
+            return options
+                .Where(option => option.IsSelected)
+                .Select(option => option.Id)
+                .ToList();
+        }
+
+        private void UpdateSelectionSummary()
+        {
+            int campaignCount = _campaignOptions.Count(o => o.IsSelected);
+            int caseCount = _caseOptions.Count(o => o.IsSelected);
+            int platformCount = _platformOptions.Count(o => o.IsSelected);
+            int qflagCount = _qflagOptions.Count(o => o.IsSelected);
+
+            if (SelectedCountsText != null)
+            {
+                SelectedCountsText.Text = $"Campaigns: {campaignCount}  |  Cases: {caseCount}  |  Platforms: {platformCount}  |  Status: {qflagCount}";
+            }
+
+            UpdateSelectedFiltersList();
+        }
+
+        private void UpdateSelectedFiltersList()
+        {
+            _selectedFilters.Clear();
+            AddSelectedFilters("Campaign", _campaignOptions);
+            AddSelectedFilters("Case", _caseOptions);
+            AddSelectedFilters("Platform", _platformOptions);
+            AddSelectedFilters("Status", _qflagOptions);
+        }
+
+        private void AddSelectedFilters(string category, List<FilterOption> options)
+        {
+            foreach (var option in options.Where(o => o.IsSelected))
+            {
+                _selectedFilters.Add(new SelectedFilterItem
+                {
+                    Category = category,
+                    Option = option,
+                    Display = $"{category}: {option.Display}"
+                });
+            }
+        }
+
+        private void ClearSelections()
+        {
+            ClearSelectionList(_campaignOptions);
+            ClearSelectionList(_caseOptions);
+            ClearSelectionList(_platformOptions);
+            ClearSelectionList(_qflagOptions);
+
+            CampaignSearchTextBox.Text = string.Empty;
+            CaseSearchTextBox.Text = string.Empty;
+            PlatformSearchTextBox.Text = string.Empty;
+            QflagSearchTextBox.Text = string.Empty;
+
+            RefreshFilterViews();
+        }
+
+        private static void ClearSelectionList(List<FilterOption> options)
+        {
+            foreach (var option in options)
+            {
+                option.IsSelected = false;
+            }
         }
 
         private void SetupBackgroundWorker()
@@ -107,21 +646,17 @@ namespace ProductCheckerV2
             _processingWorker.RunWorkerCompleted += ProcessingWorker_RunWorkerCompleted;
         }
 
-        private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+        private void SetupDragDrop()
         {
-            var dialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "Excel Files (*.xlsx;*.xls;*.xlsm)|*.xlsx;*.xls;*.xlsm|All files (*.*)|*.*",
-                Title = "Select Excel File",
-                DefaultExt = ".xlsx",
-                CheckFileExists = true,
-                CheckPathExists = true,
-                Multiselect = false
-            };
+            this.AllowDrop = true;
+            this.PreviewDragOver += MainWindow_PreviewDragOver;
+            this.PreviewDrop += MainWindow_PreviewDrop;
 
-            if (dialog.ShowDialog() == true)
+            if (UploadArea != null)
             {
-                await ValidateAndLoadFileAsync(dialog.FileName);
+                UploadArea.PreviewDragOver += UploadArea_PreviewDragOver;
+                UploadArea.PreviewDragLeave += UploadArea_PreviewDragLeave;
+                UploadArea.PreviewDrop += UploadArea_PreviewDrop;
             }
         }
 
@@ -140,7 +675,7 @@ namespace ProductCheckerV2
 
         private async void MainWindow_PreviewDrop(object sender, DragEventArgs e)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            if (!_useFilterMode && e.Data.GetDataPresent(DataFormats.FileDrop))
             {
                 string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
                 if (files.Length > 0)
@@ -156,7 +691,7 @@ namespace ProductCheckerV2
             {
                 _isDragOver = true;
                 UploadArea.Background = new SolidColorBrush(
-                    Color.FromArgb(30, 67, 97, 238)); // Primary color with opacity
+                    Color.FromArgb(30, 67, 97, 238));
                 e.Effects = DragDropEffects.Copy;
                 e.Handled = true;
             }
@@ -183,6 +718,36 @@ namespace ProductCheckerV2
             }
             e.Handled = true;
         }
+
+        private async void PreviewListingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            await LoadPreviewListingsAsync();
+        }
+        private async void BrowseButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Ensure the browse button opens the file picker.
+            UploadBrowseButton_Click(sender, e);
+        }
+
+        private async void UploadBrowseButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Excel Files (*.xlsx;*.xls;*.xlsm)|*.xlsx;*.xls;*.xlsm|All files (*.*)|*.*",
+                Title = "Select Excel File",
+                DefaultExt = ".xlsx",
+                CheckFileExists = true,
+                CheckPathExists = true,
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                await ValidateAndLoadFileAsync(dialog.FileName);
+            }
+        }
+
+        
 
         private async Task ValidateAndLoadFileAsync(string filePath)
         {
@@ -223,7 +788,10 @@ namespace ProductCheckerV2
             try
             {
                 _currentFilePath = filePath;
-                FilePathText.Text = Path.GetFileName(filePath);
+                if (UploadFilePathText != null)
+                {
+                    UploadFilePathText.Text = Path.GetFileName(filePath);
+                }
                 UpdateStatusBar($"Loading file: {Path.GetFileName(filePath)}...");
 
                 // Read Excel data
@@ -277,7 +845,10 @@ namespace ProductCheckerV2
                         Color = new SolidColorBrush(Colors.Orange)
                     }
                 };
-                FileInfoItems.ItemsSource = infoItems;
+                if (UploadFileInfoItems != null)
+                {
+                    UploadFileInfoItems.ItemsSource = infoItems;
+                }
 
                 StartButton.IsEnabled = true;
                 UpdateStatusBar($"Ready - {_uploadedData.Count} records loaded");
@@ -522,7 +1093,7 @@ namespace ProductCheckerV2
             return "Other|Not Supported";
         }
 
-        private static List<Platform> GetPlatformsCache()
+        private static List<CrawlerPlatform> GetPlatformsCache()
         {
             if (_platformsCache != null)
             {
@@ -532,11 +1103,11 @@ namespace ProductCheckerV2
             try
             {
                 using var context = new ProductCheckerDbContext();
-                _platformsCache = context.Platforms.ToList();
+                _platformsCache = context.CrawlerPlatforms.ToList();
             }
             catch
             {
-                _platformsCache = new List<Platform>();
+                _platformsCache = new List<CrawlerPlatform>();
             }
 
             return _platformsCache;
@@ -544,23 +1115,62 @@ namespace ProductCheckerV2
 
         private void ClearButton_Click(object sender, RoutedEventArgs e)
         {
-            ClearAllData();
+            ClearPreviewData();
+            ClearSelections();
+            UpdateSelectionSummary();
+            _customFileName = string.Empty;
+        }
+
+        private void UploadClearButton_Click(object sender, RoutedEventArgs e)
+        {
+            ClearPreviewData();
+            ClearUploadFileInfo();
         }
 
         private void ClearAllData()
         {
             _currentFilePath = string.Empty;
-            FilePathText.Text = "No file selected";
+            _customFileName = string.Empty;
+            ClearPreviewData();
+            ClearSelections();
+            UpdateSelectionSummary();
+            ClearUploadFileInfo();
+            UpdateStatusBar("Ready");
+        }
+
+        private void ClearPreviewData()
+        {
             DataGridPreview.ItemsSource = null;
             UpdateDataGridVisibility(false);
             UpdateStatsDisplay();
             _uploadedData.Clear();
             StartButton.IsEnabled = false;
-            UpdateStatusBar("Ready");
-
-            // Clear file info items
-            FileInfoItems.ItemsSource = null;
             RecordCountText.Text = "0 records loaded";
+        }
+
+        private void ClearUploadFileInfo()
+        {
+            if (UploadFilePathText != null)
+            {
+                UploadFilePathText.Text = "No file selected";
+            }
+            if (UploadFileInfoItems != null)
+            {
+                UploadFileInfoItems.ItemsSource = null;
+            }
+        }
+
+        private static string SanitizeFileName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var invalid = Path.GetInvalidFileNameChars();
+            var sanitized = new string(value.Where(c => !invalid.Contains(c)).ToArray()).Trim();
+
+            return sanitized;
         }
 
         private void UpdateStatsDisplay()
@@ -586,11 +1196,18 @@ namespace ProductCheckerV2
         {
             if (_uploadedData.Count == 0)
             {
-                MessageBox.Show("No data to process. Please load an Excel file first.",
+                MessageBox.Show("No data to process. Please preview listings first.",
                               "No Data", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
+            if (FilterModeRadio?.IsChecked == true)
+            {
+                ShowCustomFileNameModal();
+                return;
+            }
+
+            _customFileName = string.Empty;
             ShowConfirmProcessingModal();
         }
 
@@ -602,6 +1219,17 @@ namespace ProductCheckerV2
             //ModalUserName.Text = Environment.UserName ?? "SystemUser";
 
             ShowModal(ConfirmProcessingModal);
+        }
+
+        private void ShowCustomFileNameModal()
+        {
+            if (ModalCustomFileNameTextBox != null)
+            {
+                ModalCustomFileNameTextBox.Text = string.Empty;
+                ModalCustomFileNameTextBox.Focus();
+            }
+
+            ShowModal(FileNameModal);
         }
 
         private void ShowModal(Border modal)
@@ -643,6 +1271,29 @@ namespace ProductCheckerV2
         private void CancelProcessingButton_Click(object sender, RoutedEventArgs e)
         {
             HideModal(ConfirmProcessingModal);
+        }
+
+        private void CancelFileNameButton_Click(object sender, RoutedEventArgs e)
+        {
+            _customFileName = string.Empty;
+            HideModal(FileNameModal);
+        }
+
+        private void ConfirmFileNameButton_Click(object sender, RoutedEventArgs e)
+        {
+            _customFileName = string.Empty;
+
+            if (ModalCustomFileNameTextBox != null)
+            {
+                var raw = ModalCustomFileNameTextBox.Text?.Trim();
+                if (!string.IsNullOrWhiteSpace(raw))
+                {
+                    _customFileName = SanitizeFileName(raw);
+                }
+            }
+
+            FileNameModal.Visibility = Visibility.Collapsed;
+            ShowConfirmProcessingModal();
         }
 
         private void ConfirmProcessingButton_Click(object sender, RoutedEventArgs e)
@@ -695,16 +1346,28 @@ namespace ProductCheckerV2
                 _processingWorker.ReportProgress(10, currentMessage);
 
                 // Get file name
-                string fileName = string.IsNullOrEmpty(_currentFilePath) ?
-                    "Unknown file" : Path.GetFileName(_currentFilePath);
+                string fileName;
+                if (!string.IsNullOrWhiteSpace(_customFileName))
+                {
+                    fileName = _customFileName;
+                }
+                else if (!string.IsNullOrEmpty(_currentFilePath))
+                {
+                    fileName = Path.GetFileName(_currentFilePath);
+                }
+                else
+                {
+                    fileName = $"QuerySelection-{DateTime.Now:yyyyMMdd_HHmmss}";
+                }
 
-                using var context = new ProductCheckerV2DbContext();
+                using var context = new ProductCheckerDbContext();
 
                 // Create new requestInfo
-                var requestInfo = new RequestInfos
+                var requestInfo = new RequestInfo
                 {
                     User = Environment.UserName ?? "SystemUser",
                     FileName = fileName,
+                    Environment = ConfigurationManager.GetEnvironment(),
                     CreatedAt = DateTime.Now
                 };
 
@@ -713,7 +1376,7 @@ namespace ProductCheckerV2
                 context.SaveChanges();
 
                 // Create new request
-                var request = new Requests
+                var request = new Request
                 {
                     RequestInfoId = requestInfo.Id,
                     Status = RequestStatus.PENDING,
@@ -743,7 +1406,7 @@ namespace ProductCheckerV2
 
                     foreach (var item in batch)
                     {
-                        var listing = new ProductListings
+                        var listing = new ProductListing
                         {
                             RequestInfoId = requestInfo.Id,
                             ListingId = item.ListingId,
@@ -854,9 +1517,10 @@ namespace ProductCheckerV2
             ShowModal(ErrorModal);
         }
 
-        private void UpdateStatusBar(string message)
+                        private void UpdateStatusBar(string message)
         {
-            this.Title = $"{message}";
+            var environment = ConfigurationManager.GetEnvironment();
+            this.Title = $"{_applicationName} - {message} ({environment})";
         }
 
         private void ShowValidationOverlay(string title, string subText)
@@ -961,6 +1625,37 @@ namespace ProductCheckerV2
             public string ErrorMessage { get; set; }
         }
 
+        private class FilterOption : INotifyPropertyChanged
+        {
+            public int Id { get; set; }
+            public string Display { get; set; }
+
+            private bool _isSelected;
+            public bool IsSelected
+            {
+                get => _isSelected;
+                set
+                {
+                    if (_isSelected == value)
+                    {
+                        return;
+                    }
+
+                    _isSelected = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+                }
+            }
+
+            public event PropertyChangedEventHandler PropertyChanged;
+        }
+
+        private class SelectedFilterItem
+        {
+            public string Category { get; set; }
+            public string Display { get; set; }
+            public FilterOption Option { get; set; }
+        }
+
         public class FileInfoItem
         {
             public string Text { get; set; }
@@ -976,3 +1671,18 @@ namespace ProductCheckerV2
         public string Platform { get; set; }
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
