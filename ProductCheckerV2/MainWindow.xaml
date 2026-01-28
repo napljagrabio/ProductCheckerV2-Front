@@ -16,7 +16,6 @@
         ResizeMode="CanResizeWithGrip">
 
     <Window.Resources>
-        <!-- Enhanced Color Palette -->
         <SolidColorBrush x:Key="PrimaryBrush" Color="#3B82F6"/>
         <SolidColorBrush x:Key="PrimaryLightBrush" Color="#60A5FA"/>
         <SolidColorBrush x:Key="PrimaryDarkBrush" Color="#1D4ED8"/>
@@ -1179,58 +1178,6 @@
                                                                      ToolTip="Search campaigns"
                                                                      Margin="0,0,0,8"/>
                                                             <ListBox x:Name="CampaignListBox"
-                                                                     Height="120"
-                                                                     BorderBrush="{StaticResource BorderBrush}"
-                                                                     BorderThickness="1"
-                                                                     Background="White">
-                                                                <ListBox.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <CheckBox Content="{Binding Display}"
-                                                                                  Style="{StaticResource FilterCheckBox}"
-                                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                                  Checked="FilterOptionCheckBox_Changed"
-                                                                                  Unchecked="FilterOptionCheckBox_Changed"/>
-                                                                    </DataTemplate>
-                                                                </ListBox.ItemTemplate>
-                                                            </ListBox>
-                                                        </StackPanel>
-                                                    </Border>
-
-                                                    <!-- Cases Filter -->
-                                                    <Border Background="#F8FAFC"
-                                                            CornerRadius="10"
-                                                            Padding="16"
-                                                            Margin="0,0,0,10">
-                                                        <StackPanel>
-                                                            <DockPanel Margin="0,0,0,12">
-                                                                <Border Width="32"
-                                                                        Height="32"
-                                                                        Background="#8B5CF6"
-                                                                        CornerRadius="8"
-                                                                        DockPanel.Dock="Left"
-                                                                        Margin="0,0,12,0">
-                                                                    <TextBlock Text="📁"
-                                                                               FontSize="14"
-                                                                               HorizontalAlignment="Center"
-                                                                               VerticalAlignment="Center"/>
-                                                                </Border>
-                                                                <StackPanel>
-                                                                    <TextBlock Text="Filter By Cases"
-                                                                               FontSize="15"
-                                                                               FontWeight="Bold"
-                                                                               Foreground="{StaticResource TextPrimaryBrush}"/>
-                                                                    <TextBlock Text="Select one or more cases"
-                                                                               FontSize="12.5"
-                                                                               Foreground="{StaticResource TextSecondaryBrush}"/>
-                                                                </StackPanel>
-                                                            </DockPanel>
-
-                                                            <TextBox x:Name="CaseSearchTextBox"
-                                                                     Style="{StaticResource FilterTextBox}"
-                                                                     TextChanged="CaseSearchTextBox_TextChanged"
-                                                                     ToolTip="Search cases"
-                                                                     Margin="0,0,0,8"/>
-                                                            <ListBox x:Name="CaseListBox"
                                                                      Height="120"
                                                                      BorderBrush="{StaticResource BorderBrush}"
                                                                      BorderThickness="1"

@@ -34,6 +34,8 @@ namespace ProductCheckerV2.Common
 
         public static int BatchSize =>
             int.TryParse(Configuration.Value["AppSettings:BatchSize"], out var value) ? value : 100;
+        public static int AutoRefreshTime =>
+            int.TryParse(Configuration.Value["AppSettings:AutoRefreshDataTime"], out var value) ? value : 5;
 
         public static string GetEnvironmentSwitchPassword()
         {

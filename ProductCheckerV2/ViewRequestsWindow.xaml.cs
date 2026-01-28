@@ -55,9 +55,8 @@ namespace ProductCheckerV2
 
         private void InitializeAutoRefresh()
         {
-            // Set up auto-refresh timer for real-time updates (every 5 seconds)
             _autoRefreshTimer = new DispatcherTimer();
-            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(5);
+            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(ConfigurationManager.AutoRefreshTime);
             _autoRefreshTimer.Tick += AutoRefreshTimer_Tick;
             _autoRefreshTimer.Start();
 
@@ -72,7 +71,7 @@ namespace ProductCheckerV2
 
             try
             {
-                // Use Dispatcher to ensure UI updates happen on the UI thread
+                // Ensuring UI updates happen on the UI thread
                 Dispatcher.InvokeAsync(async () =>
                 {
                     await RefreshDataAsync();
@@ -81,7 +80,6 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
-                // Log error but don't show to user for auto-refresh
                 Console.WriteLine($"Auto-refresh error: {ex.Message}");
             }
             finally
@@ -143,23 +141,19 @@ namespace ProductCheckerV2
 
                 requestViewModels = requestViewModels.OrderByDescending(r => r.Id).ToList();
 
-                // Check if there are any changes
                 bool hasChanges = CheckForChanges(requestViewModels);
                 bool searchActive = !string.IsNullOrWhiteSpace(SearchTextBox?.Text);
 
                 if (hasChanges)
                 {
-                    // Update the requests list
                     UpdateRequestsList(requestViewModels);
                 }
 
-                // Always refresh the selected request/listings so the right panel stays current
                 if (_selectedRequest != null)
                 {
                     var selectedRequestInDb = requestViewModels.FirstOrDefault(r => r.Id == _selectedRequest.Id);
                     if (selectedRequestInDb != null)
                     {
-                        // Update selected request status and listings count
                         _selectedRequest.Status = selectedRequestInDb.Status;
                         _selectedRequest.ListingsCount = selectedRequestInDb.ListingsCount;
                         _selectedRequest.StatusBrush = GetStatusBrush(_selectedRequest.Status);
@@ -168,10 +162,8 @@ namespace ProductCheckerV2
                         _selectedRequest.Environment = selectedRequestInDb.Environment;
                         _selectedRequest.EnvironmentBrush = GetEnvironmentBrush(selectedRequestInDb.Environment);
 
-                        // Update UI for selected request
                         UpdateSelectedRequestDisplay(_selectedRequest);
 
-                        // Refresh listings for the selected request on every auto-refresh tick
                         LoadListingsForRequest(_selectedRequest.Id);
                     }
                     else
@@ -188,16 +180,13 @@ namespace ProductCheckerV2
                         UpdateListingSearchMatches();
                     }
 
-                    // Refresh the filtered view
                     _requestsView?.Refresh();
                     UpdateRequestCountText();
 
-                    // Show a subtle notification that data was refreshed (optional)
                     ShowRefreshNotification();
                 }
                 else if (searchActive)
                 {
-                    // Keep search results fresh even when request metadata hasn't changed.
                     UpdateListingSearchMatches();
                     _requestsView?.Refresh();
                     UpdateRequestCountText();
@@ -205,7 +194,6 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
-                // Don't show error messages for auto-refresh failures
                 Console.WriteLine($"Auto-refresh error: {ex.Message}");
             }
         }
@@ -325,7 +313,6 @@ namespace ProductCheckerV2
             {
                 using var context = new ProductCheckerDbContext();
 
-                // Get the RequestInfoId for this request
                 var request = context.Requests
                     .Where(r => r.Id == requestId)
                     .Select(r => new { r.RequestInfoId })
@@ -339,7 +326,6 @@ namespace ProductCheckerV2
                     return;
                 }
 
-                // Use raw SQL to avoid EF Core translation issues
                 var connection = context.Database.GetDbConnection();
                 try
                 {
@@ -348,18 +334,18 @@ namespace ProductCheckerV2
 
                     using var command = connection.CreateCommand();
                     command.CommandText = @"
-                SELECT 
-                    listing_id, 
-                    case_number, 
-                    platform, 
-                    url, 
-                    status, 
-                    checked_date, 
-                    error_detail, 
-                    note 
-                FROM product_checker_listings 
-                WHERE request_info_id = @requestInfoId 
-                ORDER BY id";
+                                            SELECT 
+                                                listing_id, 
+                                                case_number, 
+                                                platform, 
+                                                url, 
+                                                status, 
+                                                checked_date, 
+                                                error_detail, 
+                                                note 
+                                            FROM product_checker_listings 
+                                            WHERE request_info_id = @requestInfoId 
+                                            ORDER BY id";
 
                     var param = command.CreateParameter();
                     param.ParameterName = "@requestInfoId";
@@ -481,7 +467,6 @@ namespace ProductCheckerV2
                 }
             }
 
-            // Check for new requests
             foreach (var newRequest in newRequests)
             {
                 if (!_allRequests.Any(r => r.Id == newRequest.Id))
@@ -557,7 +542,7 @@ namespace ProductCheckerV2
 
         private void ShowRefreshNotification()
         {
-            // Optional: Add a subtle animation or indicator that data was refreshed
+            // This method is intentionally left empty as it was only updating a variable that wasn't used
         }
 
         private bool RequestFilter(object item)
@@ -618,7 +603,7 @@ namespace ProductCheckerV2
         {
             var brush = new SolidColorBrush(baseColor);
 
-            // Create animation for blinking effect
+            // blinking effect
             var opacityAnimation = new DoubleAnimation
             {
                 From = 0.4,
@@ -629,7 +614,6 @@ namespace ProductCheckerV2
                 EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
             };
 
-            // Apply animation to brush
             brush.BeginAnimation(SolidColorBrush.OpacityProperty, opacityAnimation);
 
             return brush;
@@ -680,7 +664,7 @@ namespace ProductCheckerV2
             SelectedRequestStatus.Text = $"Status: {request.Status}";
             PriorityToggleButton.IsChecked = request.IsHighPriority;
             PriorityToggleButton.IsEnabled = true;
-            PriorityToggleButton.ToolTip = request.IsHighPriority ? "Click to remove highest priority" : "Click to set highest priority";
+            PriorityToggleButton.ToolTip = request.IsHighPriority ? "Click to remove high priority" : "Click to set high priority";
 
             if (IsExportAllowed(request.Status))
             {
@@ -740,7 +724,7 @@ namespace ProductCheckerV2
 
                 _requestsView?.Refresh();
                 UpdateSelectedRequestDisplay(_selectedRequest);
-                ShowSuccessMessage(setHighPriority ? "Request marked as highest priority." : "Request priority cleared.", "Priority Updated");
+                ShowSuccessMessage(setHighPriority ? "Request marked as high priority." : "Request priority cleared.", "Priority Updated");
             }
             catch (Exception ex)
             {
@@ -841,7 +825,6 @@ namespace ProductCheckerV2
             ModalOverlay.Visibility = Visibility.Visible;
             modal.Visibility = Visibility.Visible;
 
-            // Animate modal entrance
             var animation = new DoubleAnimation
             {
                 From = 0.8,
@@ -885,11 +868,9 @@ namespace ProductCheckerV2
             if (_selectedRequest == null || !IsRescanAllowed(_selectedRequest.Status))
                 return;
 
-            // Reset options
-            _rescanOnlyErrors = false;
-            SelectRescanOption(false);
+            _rescanOnlyErrors = true;
+            SelectRescanOption(true);
 
-            // Show modal
             ShowModal(RescanModal);
         }
 
@@ -1034,19 +1015,16 @@ namespace ProductCheckerV2
                 return;
             }
 
-            // Get listings count
             int listingsCount = 0;
             if (ListingsDataGrid.ItemsSource is System.Collections.IEnumerable items)
             {
                 listingsCount = items.Cast<object>().Count();
             }
 
-            // Setup modal
             ExportFileName.Text = Path.GetFileNameWithoutExtension(_selectedRequest.FileName);
             ExportListingsCount.Text = listingsCount.ToString();
             ExportStatus.Text = _selectedRequest.Status.ToString();
 
-            // Set default file path
             string baseFileName = Path.GetFileNameWithoutExtension(_selectedRequest.FileName);
             string formattedDate = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string defaultFileName = $"{baseFileName}-Result-{formattedDate}.xlsx";
@@ -1056,7 +1034,6 @@ namespace ProductCheckerV2
 
             ConfirmExportButton.IsEnabled = true;
 
-            // Show modal
             ShowModal(ExportModal);
         }
 
@@ -1091,7 +1068,6 @@ namespace ProductCheckerV2
         {
             try
             {
-                // Create directory if it doesn't exist
                 string directory = Path.GetDirectoryName(_selectedExportPath);
                 if (!Directory.Exists(directory))
                 {
@@ -1100,7 +1076,6 @@ namespace ProductCheckerV2
 
                 ExportToExcel(_selectedRequest.Id, _selectedExportPath);
 
-                // Show success message
                 ShowSuccessMessage($"Listings exported successfully.", "Export Complete");
             }
             catch (Exception ex)
@@ -1115,7 +1090,6 @@ namespace ProductCheckerV2
             {
                 using var context = new ProductCheckerDbContext();
 
-                // First get the RequestInfoId for this request
                 var request = context.Requests
                     .Where(r => r.Id == requestId)
                     .Select(r => new { r.RequestInfoId, r.RequestInfo })
@@ -1136,17 +1110,17 @@ namespace ProductCheckerV2
 
                     using var command = connection.CreateCommand();
                     command.CommandText = @"
-                SELECT 
-                    listing_id, 
-                    case_number, 
-                    platform, 
-                    url, 
-                    status, 
-                    checked_date, 
-                    note 
-                FROM product_checker_listings 
-                WHERE request_info_id = @requestInfoId 
-                ORDER BY id";
+                                            SELECT 
+                                                listing_id, 
+                                                case_number, 
+                                                platform, 
+                                                url, 
+                                                status, 
+                                                checked_date, 
+                                                note 
+                                            FROM product_checker_listings 
+                                            WHERE request_info_id = @requestInfoId 
+                                            ORDER BY id";
 
                     var param = command.CreateParameter();
                     param.ParameterName = "@requestInfoId";
@@ -1352,7 +1326,6 @@ namespace ProductCheckerV2
 
         private void ShowErrorMessage(string message, string title)
         {
-            // Create a custom message box window
             var ownerWindow = Window.GetWindow(this);
             var messageBox = new Window
             {
@@ -1432,7 +1405,6 @@ namespace ProductCheckerV2
             }
         }
 
-        // Helper class for Excel export
         private class ExcelListing
         {
             public string ListingId { get; set; }
@@ -1445,7 +1417,6 @@ namespace ProductCheckerV2
         }
     }
 
-    // View Models
     public class RequestViewModel : INotifyPropertyChanged
     {
         public int Id { get; set; }

@@ -38,7 +38,6 @@ namespace ProductCheckerV2
         private bool _isDragOver = false;
         private bool _useFilterMode = true;
         private List<FilterOption> _campaignOptions = new List<FilterOption>();
-        private List<FilterOption> _caseOptions = new List<FilterOption>();
         private List<FilterOption> _platformOptions = new List<FilterOption>();
         private List<FilterOption> _qflagOptions = new List<FilterOption>();
         private ICollectionView _campaignsView;
@@ -290,16 +289,6 @@ namespace ProductCheckerV2
                     })
                     .ToList();
 
-                _caseOptions = context.Cases
-                    .Where(c => c.DeletedAt == null)
-                    .OrderBy(c => c.CaseNumber)
-                    .Select(c => new FilterOption
-                    {
-                        Id = c.Id,
-                        Display = string.IsNullOrWhiteSpace(c.CaseNumber) ? $"Case #{c.Id}" : c.CaseNumber
-                    })
-                    .ToList();
-
                 _platformOptions = context.Platforms
                     .Where(p => p.DeletedAt == null && p.Status == 1)
                     .OrderBy(p => p.Name)
@@ -321,7 +310,6 @@ namespace ProductCheckerV2
                     .ToList();
 
                 CampaignListBox.ItemsSource = _campaignOptions;
-                CaseListBox.ItemsSource = _caseOptions;
                 PlatformListBox.ItemsSource = _platformOptions;
                 QflagListBox.ItemsSource = _qflagOptions;
                 SelectedFiltersContainer.ItemsSource = _selectedFilters;
@@ -329,10 +317,6 @@ namespace ProductCheckerV2
                 _campaignsView = CollectionViewSource.GetDefaultView(_campaignOptions);
                 _campaignsView.Filter = item => FilterOptionMatches(item, CampaignSearchTextBox.Text);
                 ConfigureFilterView(_campaignsView);
-
-                _casesView = CollectionViewSource.GetDefaultView(_caseOptions);
-                _casesView.Filter = item => FilterOptionMatches(item, CaseSearchTextBox.Text);
-                ConfigureFilterView(_casesView);
 
                 _platformsView = CollectionViewSource.GetDefaultView(_platformOptions);
                 _platformsView.Filter = item => FilterOptionMatches(item, PlatformSearchTextBox.Text);
@@ -459,12 +443,10 @@ namespace ProductCheckerV2
             UpdateSelectionSummary();
 
             var selectedCampaignIds = GetSelectedIds(_campaignOptions);
-            var selectedCaseIds = GetSelectedIds(_caseOptions);
             var selectedPlatformIds = GetSelectedIds(_platformOptions);
             var selectedQflagIds = GetSelectedIds(_qflagOptions);
 
             if (selectedCampaignIds.Count == 0 &&
-                selectedCaseIds.Count == 0 &&
                 selectedPlatformIds.Count == 0 &&
                 selectedQflagIds.Count == 0)
             {
@@ -480,7 +462,7 @@ namespace ProductCheckerV2
             try
             {
                 var listings = await Task.Run(() =>
-                    QueryListings(selectedCampaignIds, selectedCaseIds, selectedPlatformIds, selectedQflagIds));
+                    QueryListings(selectedCampaignIds, selectedPlatformIds, selectedQflagIds));
 
                 _uploadedData = listings;
                 DataGridPreview.ItemsSource = _uploadedData;
@@ -510,7 +492,6 @@ namespace ProductCheckerV2
 
         private static List<UploadedProductData> QueryListings(
             List<int> campaignIds,
-            List<int> caseIds,
             List<int> platformIds,
             List<int> qflagIds)
         {
@@ -528,7 +509,6 @@ namespace ProductCheckerV2
                         {
                             listing.Id,
                             listing.CampaignId,
-                            listing.CaseId,
                             listing.PlatformId,
                             listing.QfalgId,
                             CaseNumber = c.CaseNumber,
@@ -539,11 +519,6 @@ namespace ProductCheckerV2
             if (campaignIds.Count > 0)
             {
                 query = query.Where(item => campaignIds.Contains(item.CampaignId));
-            }
-
-            if (caseIds.Count > 0)
-            {
-                query = query.Where(item => caseIds.Contains(item.CaseId));
             }
 
             if (platformIds.Count > 0)
@@ -578,13 +553,12 @@ namespace ProductCheckerV2
         private void UpdateSelectionSummary()
         {
             int campaignCount = _campaignOptions.Count(o => o.IsSelected);
-            int caseCount = _caseOptions.Count(o => o.IsSelected);
             int platformCount = _platformOptions.Count(o => o.IsSelected);
             int qflagCount = _qflagOptions.Count(o => o.IsSelected);
 
             if (SelectedCountsText != null)
             {
-                SelectedCountsText.Text = $"Campaigns: {campaignCount}  |  Cases: {caseCount}  |  Platforms: {platformCount}  |  Status: {qflagCount}";
+                SelectedCountsText.Text = $"Campaigns: {campaignCount}  |  Platforms: {platformCount}  |  Status: {qflagCount}";
             }
 
             UpdateSelectedFiltersList();
@@ -594,7 +568,6 @@ namespace ProductCheckerV2
         {
             _selectedFilters.Clear();
             AddSelectedFilters("Campaign", _campaignOptions);
-            AddSelectedFilters("Case", _caseOptions);
             AddSelectedFilters("Platform", _platformOptions);
             AddSelectedFilters("Status", _qflagOptions);
         }
@@ -615,12 +588,10 @@ namespace ProductCheckerV2
         private void ClearSelections()
         {
             ClearSelectionList(_campaignOptions);
-            ClearSelectionList(_caseOptions);
             ClearSelectionList(_platformOptions);
             ClearSelectionList(_qflagOptions);
 
             CampaignSearchTextBox.Text = string.Empty;
-            CaseSearchTextBox.Text = string.Empty;
             PlatformSearchTextBox.Text = string.Empty;
             QflagSearchTextBox.Text = string.Empty;
 

@@ -404,34 +404,12 @@
                                Foreground="{StaticResource TextPrimaryBrush}"
                                Margin="0,0,0,20"/>
 
-                    <!-- Rescan All Option -->
-                    <Border x:Name="RescanAllOption"
-                            Background="#F7FAFC"
-                            CornerRadius="10"
-                            Padding="15"
-                            Margin="0,0,0,10"
-                            BorderThickness="2"
-                            BorderBrush="{StaticResource BorderBrush}"
-                            Cursor="Hand"
-                            MouseLeftButtonDown="RescanAllOption_MouseLeftButtonDown">
-                        <StackPanel>
-                            <TextBlock Text="📋 Rescan All Listings"
-                                       FontSize="15"
-                                       FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimaryBrush}"
-                                       Margin="0,0,0,5"/>
-                            <TextBlock Text="Re-scan all listings, including both successful and failed entries"
-                                       FontSize="13"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </Border>
-
                     <!-- Rescan Errors Only Option -->
                     <Border x:Name="RescanErrorsOption"
                             Background="#F7FAFC"
                             CornerRadius="10"
                             Padding="15"
+                            Margin="0,0,0,10"
                             BorderThickness="2"
                             BorderBrush="{StaticResource BorderBrush}"
                             Cursor="Hand"
@@ -446,6 +424,28 @@
                                        FontSize="13"
                                        Foreground="{StaticResource TextSecondaryBrush}"
                                        TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Rescan All Option -->
+                    <Border x:Name="RescanAllOption"
+                            Background="#F7FAFC"
+                            CornerRadius="10"
+                            Padding="15"
+                            BorderThickness="2"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            Cursor="Hand"
+                            MouseLeftButtonDown="RescanAllOption_MouseLeftButtonDown">
+                        <StackPanel>
+                            <TextBlock Text="📋 Rescan All Listings"
+                               FontSize="15"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               Margin="0,0,0,5"/>
+                            <TextBlock Text="Re-scan all listings, including both successful and failed entries"
+                               FontSize="13"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -679,7 +679,7 @@
                                      Margin="10,0,0,0"
                                      VerticalAlignment="Center"
                                      HorizontalAlignment="Left"
-                                     ToolTip="Auto-refresh is active (every 5 seconds)">
+                                     ToolTip="Auto-refresh is active">
                                 <Ellipse.Triggers>
                                     <EventTrigger RoutedEvent="Loaded">
                                         <BeginStoryboard>
@@ -761,6 +761,7 @@
                                                     VerticalAlignment="Center">
                                             <TextBlock Text="🌟"
                                                        FontSize="16"
+                                                       Foreground="#B91C1C"
                                                        Margin="0,0,8,0"
                                                        Visibility="{Binding IsHighPriority, Converter={StaticResource BoolToVisibilityConverter}}"
                                                        ToolTip="High priority"/>
@@ -791,7 +792,7 @@
                                                        FontSize="12"
                                                        FontWeight="SemiBold"
                                                        Foreground="#2563EB"/>
-                                            
+
                                             <StackPanel
                                                     Orientation="Horizontal"
                                                     VerticalAlignment="Center">
@@ -838,7 +839,7 @@
                 </Grid>
             </Border>
 
-            <!-- Right Panel: LISTINGS (Now on the right side) -->
+            <!-- Right Panel: LISTINGS -->
             <Border Grid.Row="1"
                     Grid.Column="1"
                     Style="{StaticResource ModernCard}"
@@ -923,7 +924,7 @@
                                 </Grid>
                             </Border>
 
-                            
+
                         </Grid>
                     </Border>
 
@@ -940,67 +941,65 @@
                                   HorizontalScrollBarVisibility="Auto"
                                   ColumnWidth="*">
 
-                        <DataGrid.Columns>
+                            <DataGrid.Columns>
 
-                            <!-- ✅ AUTO-FIT TO DATA -->
-                            <DataGridTextColumn Header="Listing ID"
+                                <DataGridTextColumn Header="Listing ID"
                                 Binding="{Binding ListingId}"
                                 Width="SizeToCells"
                                 MinWidth="90"/>
 
-                            <DataGridTextColumn Header="Case Number"
+                                <DataGridTextColumn Header="Case Number"
                                 Binding="{Binding CaseNumber}"
                                 Width="SizeToCells"
                                 MinWidth="120"/>
 
-                            <DataGridTextColumn Header="Platform"
+                                <DataGridTextColumn Header="Platform"
                                 Binding="{Binding Platform}"
                                 Width="SizeToCells"
                                 MinWidth="100">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontWeight" Value="SemiBold"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
 
-                            <!-- 🔹 FLEX / FILL REMAINING SPACE -->
-                            <DataGridTextColumn Header="Product URL"
+                                <DataGridTextColumn Header="Product URL"
                                 Binding="{Binding Url}"
                                 Width="3*"
                                 MinWidth="300">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-                                        <Setter Property="ToolTip" Value="{Binding Url}"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                            <Setter Property="ToolTip" Value="{Binding Url}"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
 
-                            <DataGridTextColumn Header="URL Status"
+                                <DataGridTextColumn Header="URL Status"
                                 Binding="{Binding UrlStatus}"
                                 Width="SizeToCells"
                                 MinWidth="100">
-                            </DataGridTextColumn>
+                                </DataGridTextColumn>
 
-                            <DataGridTextColumn Header="Checked Date"
+                                <DataGridTextColumn Header="Checked Date"
                                 Binding="{Binding CheckedDate}"
                                 Width="160"
                                 MinWidth="120"/>
 
-                            <DataGridTextColumn Header="Notes"
+                                <DataGridTextColumn Header="Notes"
                                 Binding="{Binding Notes}"
                                 Width="2*"
                                 MinWidth="200">
-                                <DataGridTextColumn.ElementStyle>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-                                        <Setter Property="ToolTip" Value="{Binding Notes}"/>
-                                    </Style>
-                                </DataGridTextColumn.ElementStyle>
-                            </DataGridTextColumn>
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                            <Setter Property="ToolTip" Value="{Binding Notes}"/>
+                                        </Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
 
-                        </DataGrid.Columns>
+                            </DataGrid.Columns>
                         </DataGrid>
                     </Border>
 
@@ -1036,7 +1035,7 @@
                                         Foreground="#475569"/>
                             </Border>
                             <ToggleButton x:Name="PriorityToggleButton"
-                                          Content="High Priority"
+                                          Content="🌟 High Priority"
                                           Style="{StaticResource PriorityToggleButton}"
                                           Click="PriorityToggleButton_Click"
                                           Margin="10,0,0,0"
@@ -1073,9 +1072,3 @@
         </Grid>
     </Grid>
 </Page>
-
-
-
-
-
-
