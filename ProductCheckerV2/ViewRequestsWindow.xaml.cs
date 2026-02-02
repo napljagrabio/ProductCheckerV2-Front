@@ -24,6 +24,7 @@ namespace ProductCheckerV2
 {
     public partial class ViewRequestsPage : Page
     {
+        private const int PageSize = 10;
         private List<RequestViewModel> _allRequests = new List<RequestViewModel>();
         private ICollectionView _requestsView;
         private RequestViewModel _selectedRequest;
@@ -33,12 +34,24 @@ namespace ProductCheckerV2
         private bool _rescanOnlyErrors = false;
         private string _selectedExportPath = "";
         private string _currentSearchText = string.Empty;
+        private int _currentPage = 1;
+        private int _totalPages = 1;
+        private int _totalRequests = 0;
+        private int _pendingRequests = 0;
+        private readonly DispatcherTimer _searchDebounceTimer;
+        private const int SearchDebounceMilliseconds = 300;
 
         public ViewRequestsPage()
         {
             InitializeComponent();
             Loaded += ViewRequestsPage_Loaded;
             Unloaded += ViewRequestsPage_Unloaded;
+
+            _searchDebounceTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(SearchDebounceMilliseconds)
+            };
+            _searchDebounceTimer.Tick += SearchDebounceTimer_Tick;
         }
 
         private void ViewRequestsPage_Loaded(object sender, RoutedEventArgs e)
@@ -50,6 +63,8 @@ namespace ProductCheckerV2
         private void ViewRequestsPage_Unloaded(object sender, RoutedEventArgs e)
         {
             StopAutoRefresh();
+            _searchDebounceTimer.Stop();
+            _searchDebounceTimer.Tick -= SearchDebounceTimer_Tick;
         }
 
 
@@ -92,10 +107,92 @@ namespace ProductCheckerV2
         {
             try
             {
+                await LoadRequestsPageAsync(preserveSelection: true, showErrors: false);
+                _lastRefreshTime = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Auto-refresh error: {ex.Message}");
+            }
+        }
+
+        private async void LoadRequests()
+        {
+            await LoadRequestsPageAsync(preserveSelection: false, showErrors: true);
+        }
+
+        private async Task LoadRequestsPageAsync(bool preserveSelection, bool showErrors)
+        {
+            try
+            {
                 using var context = new ProductCheckerDbContext();
 
-                var requests = await context.Requests
-                    .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null)
+                _currentSearchText = SearchTextBox?.Text?.Trim() ?? string.Empty;
+                bool hasSearch = !string.IsNullOrWhiteSpace(_currentSearchText);
+
+                var baseQuery = context.Requests
+                    .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null);
+
+                Dictionary<int, int> listingMatchCountsByRequestInfoId = new Dictionary<int, int>();
+
+                if (hasSearch)
+                {
+                    var searchLower = _currentSearchText.ToLower();
+
+                    listingMatchCountsByRequestInfoId = await context.ProductListings
+                        .Where(l => l.RequestInfoId > 0 && (
+                            (l.ListingId ?? string.Empty).ToLower().Contains(searchLower) ||
+                            (l.CaseNumber ?? string.Empty).ToLower().Contains(searchLower) ||
+                            (l.Platform ?? string.Empty).ToLower().Contains(searchLower) ||
+                            (l.Url ?? string.Empty).ToLower().Contains(searchLower) ||
+                            (l.UrlStatus ?? string.Empty).ToLower().Contains(searchLower) ||
+                            (l.ErrorDetail ?? string.Empty).ToLower().Contains(searchLower) ||
+                            (l.Note ?? string.Empty).ToLower().Contains(searchLower)))
+                        .GroupBy(l => l.RequestInfoId)
+                        .Select(g => new { RequestInfoId = g.Key, Count = g.Count() })
+                        .ToDictionaryAsync(x => x.RequestInfoId, x => x.Count);
+
+                    var matchingRequestInfoIds = listingMatchCountsByRequestInfoId.Keys.ToList();
+
+                    int? searchId = int.TryParse(_currentSearchText, out var parsedId) ? parsedId : (int?)null;
+                    RequestStatus? statusSearch = Enum.TryParse<RequestStatus>(_currentSearchText, true, out var parsedStatus)
+                        ? parsedStatus
+                        : (RequestStatus?)null;
+
+                    baseQuery = baseQuery.Where(r =>
+                        (searchId.HasValue && (r.Id == searchId.Value || r.RequestInfoId == searchId.Value)) ||
+                        (statusSearch.HasValue && r.Status == statusSearch.Value) ||
+                        (r.RequestInfo != null && (
+                            (r.RequestInfo.User ?? string.Empty).ToLower().Contains(searchLower) ||
+                            (r.RequestInfo.FileName ?? string.Empty).ToLower().Contains(searchLower) ||
+                            (r.RequestInfo.Environment ?? string.Empty).ToLower().Contains(searchLower))) ||
+                        (matchingRequestInfoIds.Count > 0 && matchingRequestInfoIds.Contains(r.RequestInfoId)));
+                }
+
+                _totalRequests = await baseQuery.CountAsync();
+                if (!hasSearch)
+                {
+                    _pendingRequests = await baseQuery.CountAsync(r => r.Status == RequestStatus.PENDING);
+                }
+                else
+                {
+                    _pendingRequests = 0;
+                }
+
+                _totalPages = Math.Max(1, (int)Math.Ceiling((double)_totalRequests / PageSize));
+                if (_currentPage > _totalPages)
+                {
+                    _currentPage = _totalPages;
+                }
+                if (_currentPage < 1)
+                {
+                    _currentPage = 1;
+                }
+
+                var requestsPage = await baseQuery
+                    .OrderByDescending(r => r.Id)
+                    .Skip((_currentPage - 1) * PageSize)
+                    .Take(PageSize)
                     .Select(r => new
                     {
                         r.Id,
@@ -112,133 +209,27 @@ namespace ProductCheckerV2
                     })
                     .ToListAsync();
 
-                var requestViewModels = new List<RequestViewModel>();
-
-                foreach (var r in requests)
-                {
-                    int listingsCount = 0;
-                    if (r.RequestInfoId > 0)
-                    {
-                        listingsCount = await context.ProductListings
-                            .CountAsync(l => l.RequestInfoId == r.RequestInfoId);
-                    }
-
-                    requestViewModels.Add(new RequestViewModel
-                    {
-                        Id = r.Id,
-                        RequestInfoId = r.RequestInfoId,
-                        User = r.RequestInfo?.User ?? "Unknown",
-                        FileName = r.RequestInfo?.FileName ?? "Unknown",
-                        Environment = NormalizeEnvironment(r.RequestInfo?.Environment),
-                        Status = r.Status,
-                        CreatedAt = r.CreatedAt,
-                        ListingsCount = listingsCount,
-                        Priority = r.Priority,
-                        IsHighPriority = r.Priority == 1,
-                        EnvironmentBrush = GetEnvironmentBrush(r.RequestInfo?.Environment)
-                    });
-                }
-
-                requestViewModels = requestViewModels.OrderByDescending(r => r.Id).ToList();
-
-                bool hasChanges = CheckForChanges(requestViewModels);
-                bool searchActive = !string.IsNullOrWhiteSpace(SearchTextBox?.Text);
-
-                if (hasChanges)
-                {
-                    UpdateRequestsList(requestViewModels);
-                }
-
-                if (_selectedRequest != null)
-                {
-                    var selectedRequestInDb = requestViewModels.FirstOrDefault(r => r.Id == _selectedRequest.Id);
-                    if (selectedRequestInDb != null)
-                    {
-                        _selectedRequest.Status = selectedRequestInDb.Status;
-                        _selectedRequest.ListingsCount = selectedRequestInDb.ListingsCount;
-                        _selectedRequest.StatusBrush = GetStatusBrush(_selectedRequest.Status);
-                        _selectedRequest.Priority = selectedRequestInDb.Priority;
-                        _selectedRequest.IsHighPriority = selectedRequestInDb.Priority == 1;
-                        _selectedRequest.Environment = selectedRequestInDb.Environment;
-                        _selectedRequest.EnvironmentBrush = GetEnvironmentBrush(selectedRequestInDb.Environment);
-
-                        UpdateSelectedRequestDisplay(_selectedRequest);
-
-                        LoadListingsForRequest(_selectedRequest.Id);
-                    }
-                    else
-                    {
-                        ClearListings();
-                        UpdateSelectedRequestDisplay(null);
-                    }
-                }
-
-                if (hasChanges)
-                {
-                    if (searchActive)
-                    {
-                        UpdateListingSearchMatches();
-                    }
-
-                    _requestsView?.Refresh();
-                    UpdateRequestCountText();
-
-                    ShowRefreshNotification();
-                }
-                else if (searchActive)
-                {
-                    UpdateListingSearchMatches();
-                    _requestsView?.Refresh();
-                    UpdateRequestCountText();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Auto-refresh error: {ex.Message}");
-            }
-        }
-
-        private void LoadRequests()
-        {
-            try
-            {
-                using var context = new ProductCheckerDbContext();
-
-                var requests = context.Requests
-                    .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null)
-                    .Select(r => new
-                    {
-                        r.Id,
-                        r.Priority,
-                        r.Status,
-                        r.CreatedAt,
-                        r.RequestInfoId,
-                        RequestInfo = r.RequestInfo != null ? new
-                        {
-                            r.RequestInfo.User,
-                            r.RequestInfo.FileName,
-                            r.RequestInfo.Environment
-                        } : null
-                    })
+                var requestInfoIds = requestsPage
+                    .Select(r => r.RequestInfoId)
+                    .Where(id => id > 0)
+                    .Distinct()
                     .ToList();
 
-                _allRequests.Clear();
-
-                int pendingRequests = 0;
-
-                foreach (var r in requests)
+                Dictionary<int, int> listingsCountByRequestInfoId = new Dictionary<int, int>();
+                if (requestInfoIds.Count > 0)
                 {
-                    int listingsCount = 0;
-                    if (r.RequestInfoId > 0)
-                    {
-                        listingsCount = context.ProductListings
-                            .Count(l => l.RequestInfoId == r.RequestInfoId);
-                    }
+                    listingsCountByRequestInfoId = await context.ProductListings
+                        .Where(l => requestInfoIds.Contains(l.RequestInfoId))
+                        .GroupBy(l => l.RequestInfoId)
+                        .Select(g => new { RequestInfoId = g.Key, Count = g.Count() })
+                        .ToDictionaryAsync(x => x.RequestInfoId, x => x.Count);
+                }
 
-                    if (r.Status == RequestStatus.PENDING)
-                    {
-                        pendingRequests++;
-                    }
+                _allRequests.Clear();
+                foreach (var r in requestsPage)
+                {
+                    listingsCountByRequestInfoId.TryGetValue(r.RequestInfoId, out var listingsCount);
+                    listingMatchCountsByRequestInfoId.TryGetValue(r.RequestInfoId, out var matchCount);
 
                     var requestVM = new RequestViewModel
                     {
@@ -252,7 +243,9 @@ namespace ProductCheckerV2
                         ListingsCount = listingsCount,
                         Priority = r.Priority,
                         IsHighPriority = r.Priority == 1,
-                        EnvironmentBrush = GetEnvironmentBrush(r.RequestInfo?.Environment)
+                        EnvironmentBrush = GetEnvironmentBrush(r.RequestInfo?.Environment),
+                        MatchCount = matchCount,
+                        HasListingMatch = matchCount > 0
                     };
 
                     requestVM.StatusBrush = GetStatusBrush(requestVM.Status);
@@ -263,47 +256,77 @@ namespace ProductCheckerV2
 
                 _requestsView = CollectionViewSource.GetDefaultView(_allRequests);
                 _requestsView.Filter = RequestFilter;
-
                 RequestsListBox.ItemsSource = _requestsView;
-                if (!string.IsNullOrWhiteSpace(SearchTextBox?.Text))
-                {
-                    UpdateListingSearchMatches();
-                    _requestsView.Refresh();
-                    UpdateRequestCountText();
-                }
-                else
-                {
-                    RequestCountText.Text = $"({pendingRequests} pending)";
-                }
+                _requestsView.Refresh();
 
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    if (_allRequests.Any())
-                    {
-                        if (RequestsListBox.ItemsSource != null && RequestsListBox.Items.Count > 0)
-                        {
-                            try
-                            {
-                                RequestsListBox.SelectedIndex = 0;
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine($"Error selecting first request: {ex.Message}");
-                            }
-                        }
-                    }
-                    else
-                    {
-                        UpdateSelectedRequestDisplay(null);
-                    }
-                }), System.Windows.Threading.DispatcherPriority.Loaded);
+                UpdateRequestCountText();
+                UpdatePaginationControls();
+                ApplySelectionAfterLoad(preserveSelection);
 
                 _lastRefreshTime = DateTime.Now;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading requests: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
-                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                if (showErrors)
+                {
+                    MessageBox.Show($"Error loading requests: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
+                        "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                else
+                {
+                    Console.WriteLine($"Error loading requests: {ex.Message}");
+                }
+            }
+        }
+
+        private void ApplySelectionAfterLoad(bool preserveSelection)
+        {
+            if (!_allRequests.Any())
+            {
+                _selectedRequest = null;
+                RequestsListBox.SelectedItem = null;
+                ClearListings();
+                UpdateSelectedRequestDisplay(null);
+                return;
+            }
+
+            if (preserveSelection && _selectedRequest != null)
+            {
+                var match = _allRequests.FirstOrDefault(r => r.Id == _selectedRequest.Id);
+                if (match != null)
+                {
+                    RequestsListBox.SelectedItem = match;
+                    return;
+                }
+            }
+
+            RequestsListBox.SelectedIndex = 0;
+        }
+
+        private void UpdatePaginationControls()
+        {
+            if (PageInfoText != null)
+            {
+                if (_totalRequests == 0)
+                {
+                    PageInfoText.Text = "0 of 0";
+                }
+                else
+                {
+                    int start = ((_currentPage - 1) * PageSize) + 1;
+                    int end = Math.Min(_currentPage * PageSize, _totalRequests);
+                    PageInfoText.Text = $"Page {_currentPage} of {_totalPages} - {start}-{end} of {_totalRequests}";
+                }
+            }
+
+            if (PrevPageButton != null)
+            {
+                PrevPageButton.IsEnabled = _currentPage > 1;
+            }
+
+            if (NextPageButton != null)
+            {
+                NextPageButton.IsEnabled = _currentPage < _totalPages;
             }
         }
 
@@ -741,75 +764,50 @@ namespace ProductCheckerV2
 
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
-            UpdateListingSearchMatches();
-            _requestsView?.Refresh();
-            UpdateRequestCountText();
+            _currentPage = 1;
+            _searchDebounceTimer.Stop();
+            _searchDebounceTimer.Start();
         }
 
-        private void UpdateListingSearchMatches()
+        private async void SearchDebounceTimer_Tick(object sender, EventArgs e)
         {
-            _currentSearchText = SearchTextBox?.Text?.Trim() ?? string.Empty;
+            _searchDebounceTimer.Stop();
+            await LoadRequestsPageAsync(preserveSelection: false, showErrors: false);
+        }
 
-            if (string.IsNullOrWhiteSpace(_currentSearchText))
+        private async void PrevPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentPage <= 1)
             {
-                foreach (var request in _allRequests)
-                {
-                    request.MatchCount = 0;
-                    request.HasListingMatch = false;
-                }
                 return;
             }
 
-            using var context = new ProductCheckerDbContext();
-            var searchLower = _currentSearchText.ToLower();
+            _currentPage--;
+            await LoadRequestsPageAsync(preserveSelection: true, showErrors: false);
+        }
 
-            var matchCountsByRequestInfoId = context.ProductListings
-                .Where(l => l.RequestInfoId > 0 && (
-                    (l.ListingId ?? string.Empty).ToLower().Contains(searchLower) ||
-                    (l.CaseNumber ?? string.Empty).ToLower().Contains(searchLower) ||
-                    (l.Platform ?? string.Empty).ToLower().Contains(searchLower) ||
-                    (l.Url ?? string.Empty).ToLower().Contains(searchLower) ||
-                    (l.UrlStatus ?? string.Empty).ToLower().Contains(searchLower) ||
-                    (l.ErrorDetail ?? string.Empty).ToLower().Contains(searchLower) ||
-                    (l.Note ?? string.Empty).ToLower().Contains(searchLower)))
-                .GroupBy(l => l.RequestInfoId)
-                .Select(g => new { RequestInfoId = g.Key, Count = g.Count() })
-                .ToList()
-                .ToDictionary(x => x.RequestInfoId, x => x.Count);
-
-            foreach (var request in _allRequests)
+        private async void NextPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentPage >= _totalPages)
             {
-                if (matchCountsByRequestInfoId.TryGetValue(request.RequestInfoId, out var count))
-                {
-                    request.MatchCount = count;
-                    request.HasListingMatch = count > 0;
-                }
-                else
-                {
-                    request.MatchCount = 0;
-                    request.HasListingMatch = false;
-                }
+                return;
             }
+
+            _currentPage++;
+            await LoadRequestsPageAsync(preserveSelection: true, showErrors: false);
         }
 
         private void UpdateRequestCountText()
         {
-            if (_requestsView == null)
-            {
-                return;
-            }
-
             _currentSearchText = SearchTextBox?.Text?.Trim() ?? string.Empty;
 
             if (string.IsNullOrWhiteSpace(_currentSearchText))
             {
-                int pendingRequests = _allRequests.Count(r => r.Status == RequestStatus.PENDING);
-                RequestCountText.Text = $"({pendingRequests} pending)";
+                RequestCountText.Text = $"({_pendingRequests} pending)";
                 return;
             }
 
-            int filteredCount = _requestsView.Cast<object>().Count();
-            RequestCountText.Text = $"({filteredCount} requests)";
+            RequestCountText.Text = $"({_totalRequests} requests)";
         }
 
         // ==================== MODAL METHODS ====================
@@ -1028,7 +1026,7 @@ namespace ProductCheckerV2
             string baseFileName = Path.GetFileNameWithoutExtension(_selectedRequest.FileName);
             string formattedDate = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             string defaultFileName = $"{baseFileName}-Result-{formattedDate}.xlsx";
-            string defaultFolder = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+            string defaultFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             _selectedExportPath = Path.Combine(defaultFolder, defaultFileName);
             ExportFilePath.Text = _selectedExportPath;
 

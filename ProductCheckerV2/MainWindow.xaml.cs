@@ -141,6 +141,10 @@ namespace ProductCheckerV2
                 LoadFilterOptions();
                 UpdateSelectionSummary();
                 UpdateStatsDisplay();
+                ClearUploadFileInfo();
+                ClearPreviewData();
+                ClearSelections();
+                _customFileName = string.Empty;
 
                 UpdateStatusBar($"Environment: {selectedEnvironment}");
                 UpdateEnvironmentIndicator();
