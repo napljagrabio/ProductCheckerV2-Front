@@ -10,25 +10,24 @@ namespace ProductCheckerV2.Database.Models
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("id")]
-        public int Id { get; set; }
+        public long Id { get; set; }
 
         [Column("request_info_id")]
-        public int RequestInfoId { get; set; }
+        public long RequestInfoId { get; set; }
 
         [Column("listing_id")]
-        [MaxLength(255)]
-        public string? ListingId { get; set; }
+        public long ListingId { get; set; }
 
         [Column("case_number")]
-        [MaxLength(100)]
+        [MaxLength(255)]
         public string? CaseNumber { get; set; }
 
         [Column("platform")]
-        [MaxLength(50)]
+        [MaxLength(255)]
         public string? Platform { get; set; }
 
         [Column("url")]
-        [MaxLength(2000)]
+        [MaxLength(255)]
         public string? Url { get; set; }
 
         [Column("status")]
@@ -43,6 +42,7 @@ namespace ProductCheckerV2.Database.Models
         public string? ErrorDetail { get; set; }
 
         [Column("note")]
+        [MaxLength(255)]
         public string? Note { get; set; }
 
         [Column("created_at")]

@@ -1090,6 +1090,7 @@
                             <TextBlock x:Name="ProgressName"
                                        Text="Progress:"
                                        FontSize="14"
+                                       FontWeight="Bold"
                                        Foreground="#718096"
                                        Margin="0,0,6,0"/>
                             <ProgressBar x:Name="ListingProgressBar"
@@ -1104,8 +1105,25 @@
                             <TextBlock x:Name="ListingProgressText"
                                        Text="0/0"
                                        FontSize="13"
+                                       FontWeight="Bold"
                                        Foreground="#718096"
                                        Margin="8,0,0,0"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="SuccessfulCountText"
+                                       Text="✅: 0"
+                                       ToolTip="Success"
+                                       FontSize="12.5"
+                                       FontWeight="Bold"
+                                       Foreground="#2F855A"
+                                       Margin="12,0,0,0"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock x:Name="NotSuccessfulCountText"
+                                       Text="⛔: 0"
+                                       ToolTip="Error"
+                                       FontSize="12.5"
+                                       FontWeight="Bold"
+                                       Foreground="#C53030"
+                                       Margin="10,0,0,0"
                                        VerticalAlignment="Center"/>
                         </StackPanel>
                     </Grid>

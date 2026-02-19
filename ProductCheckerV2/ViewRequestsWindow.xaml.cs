@@ -6,6 +6,7 @@ using ProductCheckerV2.Database.Models;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -133,15 +134,18 @@ namespace ProductCheckerV2
                 var baseQuery = context.Requests
                     .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null);
 
-                Dictionary<int, int> listingMatchCountsByRequestInfoId = new Dictionary<int, int>();
+                Dictionary<long, int> listingMatchCountsByRequestInfoId = new Dictionary<long, int>();
 
                 if (hasSearch)
                 {
                     var searchLower = _currentSearchText.ToLower();
+                    long? searchListingId = long.TryParse(_currentSearchText, out var parsedListingId)
+                        ? parsedListingId
+                        : (long?)null;
 
                     listingMatchCountsByRequestInfoId = await context.ProductListings
                         .Where(l => l.RequestInfoId > 0 && (
-                            (l.ListingId ?? string.Empty).ToLower().Contains(searchLower) ||
+                            (searchListingId.HasValue && l.ListingId == searchListingId.Value) ||
                             (l.CaseNumber ?? string.Empty).ToLower().Contains(searchLower) ||
                             (l.Platform ?? string.Empty).ToLower().Contains(searchLower) ||
                             (l.Url ?? string.Empty).ToLower().Contains(searchLower) ||
@@ -154,7 +158,7 @@ namespace ProductCheckerV2
 
                     var matchingRequestInfoIds = listingMatchCountsByRequestInfoId.Keys.ToList();
 
-                    int? searchId = int.TryParse(_currentSearchText, out var parsedId) ? parsedId : (int?)null;
+                    long? searchId = long.TryParse(_currentSearchText, out var parsedId) ? parsedId : (long?)null;
                     RequestStatus? statusSearch = Enum.TryParse<RequestStatus>(_currentSearchText, true, out var parsedStatus)
                         ? parsedStatus
                         : (RequestStatus?)null;
@@ -215,7 +219,7 @@ namespace ProductCheckerV2
                     .Distinct()
                     .ToList();
 
-                Dictionary<int, int> listingsCountByRequestInfoId = new Dictionary<int, int>();
+                Dictionary<long, int> listingsCountByRequestInfoId = new Dictionary<long, int>();
                 if (requestInfoIds.Count > 0)
                 {
                     listingsCountByRequestInfoId = await context.ProductListings
@@ -330,7 +334,7 @@ namespace ProductCheckerV2
             }
         }
 
-        private void LoadListingsForRequest(int requestId)
+        private void LoadListingsForRequest(long requestId)
         {
             try
             {
@@ -422,17 +426,37 @@ namespace ProductCheckerV2
             if (reader.IsDBNull(columnIndex))
                 return string.Empty;
 
-            return reader.GetString(columnIndex);
+            var value = reader.GetValue(columnIndex);
+            return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
         }
 
         private void UpdateListingProgress(IReadOnlyCollection<ListingViewModel> listings)
         {
             int total = listings?.Count ?? 0;
             int processed = 0;
+            int successful = 0;
+            int notSuccessful = 0;
 
             if (listings != null)
             {
-                processed = listings.Count(IsListingProcessed);
+                foreach (var listing in listings)
+                {
+                    if (!IsListingProcessed(listing))
+                    {
+                        continue;
+                    }
+
+                    processed++;
+                    if (IsListingSuccessful(listing))
+                    {
+                        successful++;
+                    }
+                    else
+                    {
+                        notSuccessful++;
+                    }
+                }
+
                 if (processed > total)
                 {
                     processed = total;
@@ -442,6 +466,8 @@ namespace ProductCheckerV2
             ListingProgressBar.Maximum = Math.Max(1, total);
             ListingProgressBar.Value = processed;
             ListingProgressText.Text = $"{processed}/{total}";
+            SuccessfulCountText.Text = $"✅: {successful}";
+            NotSuccessfulCountText.Text = $"⛔: {notSuccessful}";
             if (processed == total)
             {
                 ProgressName.Text = "Completed:";
@@ -468,105 +494,122 @@ namespace ProductCheckerV2
             return !status.Equals("PENDING", StringComparison.OrdinalIgnoreCase);
         }
 
-        private bool CheckForChanges(List<RequestViewModel> newRequests)
+        private static bool IsListingSuccessful(ListingViewModel listing)
         {
-            if (_allRequests.Count != newRequests.Count)
-                return true;
-
-            for (int i = 0; i < _allRequests.Count; i++)
+            if (listing == null)
             {
-                var oldRequest = _allRequests[i];
-                var newRequest = newRequests.FirstOrDefault(r => r.Id == oldRequest.Id);
-
-                if (newRequest == null)
-                    return true;
-
-                if (oldRequest.Status != newRequest.Status ||
-                    oldRequest.ListingsCount != newRequest.ListingsCount ||
-                    oldRequest.Priority != newRequest.Priority ||
-                    !string.Equals(oldRequest.Environment, newRequest.Environment, StringComparison.OrdinalIgnoreCase))
-                {
-                    return true;
-                }
+                return false;
             }
 
-            foreach (var newRequest in newRequests)
+            var status = listing.UrlStatus;
+            if (string.IsNullOrWhiteSpace(status))
             {
-                if (!_allRequests.Any(r => r.Id == newRequest.Id))
-                    return true;
+                return false;
             }
 
-            return false;
+            return status.Equals("Available", StringComparison.OrdinalIgnoreCase) ||
+                   status.Equals("Not Available", StringComparison.OrdinalIgnoreCase);
         }
 
-        private void UpdateRequestsList(List<RequestViewModel> newRequests)
-        {
-            foreach (var existingRequest in _allRequests.ToList())
-            {
-                var updatedRequest = newRequests.FirstOrDefault(r => r.Id == existingRequest.Id);
-                if (updatedRequest != null)
-                {
-                    existingRequest.Status = updatedRequest.Status;
-                    existingRequest.ListingsCount = updatedRequest.ListingsCount;
-                    existingRequest.StatusBrush = GetStatusBrush(existingRequest.Status);
-                    existingRequest.RequestInfoId = updatedRequest.RequestInfoId;
-                    existingRequest.Priority = updatedRequest.Priority;
-                    existingRequest.IsHighPriority = updatedRequest.IsHighPriority;
-                    existingRequest.Environment = updatedRequest.Environment;
-                    existingRequest.EnvironmentBrush = GetEnvironmentBrush(updatedRequest.Environment);
-                }
-            }
+        //private bool CheckForChanges(List<RequestViewModel> newRequests)
+        //{
+        //    if (_allRequests.Count != newRequests.Count)
+        //        return true;
 
-            var pendingRequests = 0;
-            var newRequestIds = newRequests.Select(r => r.Id).Except(_allRequests.Select(r => r.Id));
-            foreach (var newId in newRequestIds)
-            {
-                var request = newRequests.First(r => r.Id == newId);
-                var requestVM = new RequestViewModel
-                {
-                    Id = request.Id,
-                    RequestInfoId = request.RequestInfoId,
-                    User = request.User,
-                    FileName = request.FileName,
-                    Environment = NormalizeEnvironment(request.Environment),
-                    Status = request.Status,
-                    CreatedAt = request.CreatedAt,
-                    ListingsCount = request.ListingsCount,
-                    StatusBrush = GetStatusBrush(request.Status),
-                    Priority = request.Priority,
-                    IsHighPriority = request.Priority == 1,
-                    EnvironmentBrush = GetEnvironmentBrush(request.Environment)
-                };
+        //    for (int i = 0; i < _allRequests.Count; i++)
+        //    {
+        //        var oldRequest = _allRequests[i];
+        //        var newRequest = newRequests.FirstOrDefault(r => r.Id == oldRequest.Id);
 
-                if (request.Status == RequestStatus.PENDING)
-                {
-                    pendingRequests++;
-                }
-                _allRequests.Add(requestVM);
-            }
+        //        if (newRequest == null)
+        //            return true;
 
-            _allRequests = _allRequests.OrderByDescending(r => r.Id).ToList();
-            if (!string.IsNullOrWhiteSpace(SearchTextBox?.Text))
-            {
-                UpdateRequestCountText();
-            }
-            else
-            {
-                RequestCountText.Text = $"({pendingRequests} pending)";
-            }
-        }
+        //        if (oldRequest.Status != newRequest.Status ||
+        //            oldRequest.ListingsCount != newRequest.ListingsCount ||
+        //            oldRequest.Priority != newRequest.Priority ||
+        //            !string.Equals(oldRequest.Environment, newRequest.Environment, StringComparison.OrdinalIgnoreCase))
+        //        {
+        //            return true;
+        //        }
+        //    }
 
-        private bool IsFinalStatus(RequestStatus status)
-        {
-            return status == RequestStatus.SUCCESS ||
-                   status == RequestStatus.FAILED ||
-                   status == RequestStatus.COMPLETED_WITH_ISSUES;
-        }
+        //    foreach (var newRequest in newRequests)
+        //    {
+        //        if (!_allRequests.Any(r => r.Id == newRequest.Id))
+        //            return true;
+        //    }
 
-        private void ShowRefreshNotification()
-        {
-            // This method is intentionally left empty as it was only updating a variable that wasn't used
-        }
+        //    return false;
+        //}
+
+        //private void UpdateRequestsList(List<RequestViewModel> newRequests)
+        //{
+        //    foreach (var existingRequest in _allRequests.ToList())
+        //    {
+        //        var updatedRequest = newRequests.FirstOrDefault(r => r.Id == existingRequest.Id);
+        //        if (updatedRequest != null)
+        //        {
+        //            existingRequest.Status = updatedRequest.Status;
+        //            existingRequest.ListingsCount = updatedRequest.ListingsCount;
+        //            existingRequest.StatusBrush = GetStatusBrush(existingRequest.Status);
+        //            existingRequest.RequestInfoId = updatedRequest.RequestInfoId;
+        //            existingRequest.Priority = updatedRequest.Priority;
+        //            existingRequest.IsHighPriority = updatedRequest.IsHighPriority;
+        //            existingRequest.Environment = updatedRequest.Environment;
+        //            existingRequest.EnvironmentBrush = GetEnvironmentBrush(updatedRequest.Environment);
+        //        }
+        //    }
+
+        //    var pendingRequests = 0;
+        //    var newRequestIds = newRequests.Select(r => r.Id).Except(_allRequests.Select(r => r.Id));
+        //    foreach (var newId in newRequestIds)
+        //    {
+        //        var request = newRequests.First(r => r.Id == newId);
+        //        var requestVM = new RequestViewModel
+        //        {
+        //            Id = request.Id,
+        //            RequestInfoId = request.RequestInfoId,
+        //            User = request.User,
+        //            FileName = request.FileName,
+        //            Environment = NormalizeEnvironment(request.Environment),
+        //            Status = request.Status,
+        //            CreatedAt = request.CreatedAt,
+        //            ListingsCount = request.ListingsCount,
+        //            StatusBrush = GetStatusBrush(request.Status),
+        //            Priority = request.Priority,
+        //            IsHighPriority = request.Priority == 1,
+        //            EnvironmentBrush = GetEnvironmentBrush(request.Environment)
+        //        };
+
+        //        if (request.Status == RequestStatus.PENDING)
+        //        {
+        //            pendingRequests++;
+        //        }
+        //        _allRequests.Add(requestVM);
+        //    }
+
+        //    _allRequests = _allRequests.OrderByDescending(r => r.Id).ToList();
+        //    if (!string.IsNullOrWhiteSpace(SearchTextBox?.Text))
+        //    {
+        //        UpdateRequestCountText();
+        //    }
+        //    else
+        //    {
+        //        RequestCountText.Text = $"({pendingRequests} pending)";
+        //    }
+        //}
+
+        //private bool IsFinalStatus(RequestStatus status)
+        //{
+        //    return status == RequestStatus.SUCCESS ||
+        //           status == RequestStatus.FAILED ||
+        //           status == RequestStatus.COMPLETED_WITH_ISSUES;
+        //}
+
+        //private void ShowRefreshNotification()
+        //{
+        //    // This method is intentionally left empty as it was only updating a variable that wasn't used
+        //}
 
         private bool RequestFilter(object item)
         {
@@ -683,7 +726,7 @@ namespace ProductCheckerV2
             }
 
             SelectedRequestTitle.Text = request.FileName;
-            SelectedRequestInfo.Text = $"RID: {request.Id} • User: {request.User} • Created: {request.CreatedAt:yyyy MMM d, h:mm tt}";
+            SelectedRequestInfo.Text = $"RID: {request.RequestInfoId} • User: {request.User} • Created: {request.CreatedAt:yyyy MMM d, h:mm tt}";
             SelectedRequestStatus.Text = $"Status: {request.Status}";
             PriorityToggleButton.IsChecked = request.IsHighPriority;
             PriorityToggleButton.IsEnabled = true;
@@ -950,7 +993,7 @@ namespace ProductCheckerV2
                 {
                     RequestInfoId = _selectedRequest.RequestInfoId,
                     Status = RequestStatus.PENDING,
-                    RescanInfoId = _rescanOnlyErrors ? 1 : 0,
+                    RescanId = _rescanOnlyErrors ? 1 : 0,
                     CreatedAt = DateTime.Now
                 };
 
@@ -1082,7 +1125,7 @@ namespace ProductCheckerV2
             }
         }
 
-        private void ExportToExcel(int requestId, string filePath)
+        private void ExportToExcel(long requestId, string filePath)
         {
             try
             {
@@ -1417,8 +1460,8 @@ namespace ProductCheckerV2
 
     public class RequestViewModel : INotifyPropertyChanged
     {
-        public int Id { get; set; }
-        public int RequestInfoId { get; set; }
+        public long Id { get; set; }
+        public long RequestInfoId { get; set; }
         public string User { get; set; }
         public string FileName { get; set; }
         public string Environment { get; set; } = "Stage";

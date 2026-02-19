@@ -4,13 +4,13 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ProductCheckerV2.Database.Models
 {
-    [Table("request_infos")]
+    [Table("product_checker_request_infos")]
     public class RequestInfo
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("id")]
-        public int Id { get; set; }
+        public long Id { get; set; }
 
         [Column("user")]
         [MaxLength(255)]

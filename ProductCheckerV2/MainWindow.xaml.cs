@@ -31,7 +31,7 @@ namespace ProductCheckerV2
         private BackgroundWorker _processingWorker;
         private string _applicationName = "";
         private string _currentFilePath = string.Empty;
-        private int _currentRequestId = 0;
+        private long _currentRequestId = 0;
         private int _currentRecordsProcessed = 0;
         private static List<CrawlerPlatform> _platformsCache;
         private bool _isFileValidationActive = false;
@@ -1363,10 +1363,15 @@ namespace ProductCheckerV2
 
                     foreach (var item in batch)
                     {
+                        if (!long.TryParse(item.ListingId, out var listingIdValue))
+                        {
+                            throw new InvalidOperationException($"Invalid Listing ID: {item.ListingId}");
+                        }
+
                         var listing = new ProductListing
                         {
                             RequestInfoId = requestInfo.Id,
-                            ListingId = item.ListingId,
+                            ListingId = listingIdValue,
                             CaseNumber = item.CaseNumber,
                             Url = item.ProductUrl,
                             Platform = item.Platform,
@@ -1460,7 +1465,7 @@ namespace ProductCheckerV2
             });
         }
 
-        private void ShowSuccessModal(int requestId, int recordsProcessed)
+        private void ShowSuccessModal(long requestId, int recordsProcessed)
         {
             ShowModal(SuccessModal);
         }
@@ -1575,7 +1580,7 @@ namespace ProductCheckerV2
         private class ProcessingResult
         {
             public bool Success { get; set; }
-            public int RequestId { get; set; }
+            public long RequestId { get; set; }
             public int RecordsProcessed { get; set; }
             public string Message { get; set; }
             public string ErrorMessage { get; set; }
