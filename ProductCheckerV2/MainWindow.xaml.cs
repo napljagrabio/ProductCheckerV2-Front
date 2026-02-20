@@ -22,6 +22,8 @@ using DocumentFormat.OpenXml.Drawing.Charts;
 using System.Windows.Media.Effects;
 using System.Windows.Threading;
 using System.Windows.Data;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 
 namespace ProductCheckerV2
 {
@@ -368,9 +370,29 @@ namespace ProductCheckerV2
             }
         }
 
+        private void CampaignSearchTextBox_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFilterDropdownWithAllResults(CampaignDropdownPopup, CampaignSearchTextBox);
+        }
+
+        private void PlatformSearchTextBox_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFilterDropdownWithAllResults(PlatformDropdownPopup, PlatformSearchTextBox);
+        }
+
+        private void QflagSearchTextBox_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFilterDropdownWithAllResults(QflagDropdownPopup, QflagSearchTextBox);
+        }
+
         private void CampaignSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             _campaignsView?.Refresh();
+
+            if (ShouldAutoOpenDropdown(CampaignSearchTextBox))
+            {
+                OpenFilterDropdown(CampaignDropdownPopup);
+            }
         }
 
         private void CaseSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -381,11 +403,147 @@ namespace ProductCheckerV2
         private void PlatformSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             _platformsView?.Refresh();
+
+            if (ShouldAutoOpenDropdown(PlatformSearchTextBox))
+            {
+                OpenFilterDropdown(PlatformDropdownPopup);
+            }
         }
 
         private void QflagSearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             _qflagsView?.Refresh();
+
+            if (ShouldAutoOpenDropdown(QflagSearchTextBox))
+            {
+                OpenFilterDropdown(QflagDropdownPopup);
+            }
+        }
+
+        private static bool ShouldAutoOpenDropdown(TextBox searchTextBox)
+        {
+            if (searchTextBox == null)
+            {
+                return false;
+            }
+
+            return searchTextBox.IsKeyboardFocusWithin ||
+                   !string.IsNullOrWhiteSpace(searchTextBox.Text);
+        }
+
+        private void OpenFilterDropdownWithAllResults(Popup popup, TextBox searchTextBox)
+        {
+            if (searchTextBox != null)
+            {
+                searchTextBox.Text = string.Empty;
+                searchTextBox.Focus();
+            }
+
+            OpenFilterDropdown(popup);
+        }
+
+        private static void OpenFilterDropdown(Popup popup)
+        {
+            if (popup == null)
+            {
+                return;
+            }
+
+            popup.IsOpen = true;
+        }
+
+        private void MainWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (!IsAnyFilterDropdownOpen())
+            {
+                return;
+            }
+
+            if (IsClickInsideFilterControls(e.OriginalSource as DependencyObject))
+            {
+                return;
+            }
+
+            CloseFilterDropdowns();
+            CampaignSearchTextBox.Text = "🖱️ Double click to search campaign";
+            PlatformSearchTextBox.Text = "🖱️ Double click to search platform";
+            QflagSearchTextBox.Text = "🖱️ Double click to search status";
+        }
+
+        private bool IsAnyFilterDropdownOpen()
+        {
+            return CampaignDropdownPopup?.IsOpen == true ||
+                   PlatformDropdownPopup?.IsOpen == true ||
+                   QflagDropdownPopup?.IsOpen == true;
+        }
+
+        private void CloseFilterDropdowns()
+        {
+            if (CampaignDropdownPopup != null)
+            {
+                CampaignDropdownPopup.IsOpen = false;
+            }
+
+            if (PlatformDropdownPopup != null)
+            {
+                PlatformDropdownPopup.IsOpen = false;
+            }
+
+            if (QflagDropdownPopup != null)
+            {
+                QflagDropdownPopup.IsOpen = false;
+            }
+        }
+
+        private bool IsClickInsideFilterControls(DependencyObject source)
+        {
+            return IsDescendantOf(source, CampaignSearchTextBox) ||
+                   IsDescendantOf(source, PlatformSearchTextBox) ||
+                   IsDescendantOf(source, QflagSearchTextBox) ||
+                   IsDescendantOf(source, CampaignListBox) ||
+                   IsDescendantOf(source, PlatformListBox) ||
+                   IsDescendantOf(source, QflagListBox);
+        }
+
+        private static bool IsDescendantOf(DependencyObject source, DependencyObject target)
+        {
+            while (source != null)
+            {
+                if (ReferenceEquals(source, target))
+                {
+                    return true;
+                }
+
+                source = GetParent(source);
+            }
+
+            return false;
+        }
+
+        private static DependencyObject GetParent(DependencyObject child)
+        {
+            if (child == null)
+            {
+                return null;
+            }
+
+            if (child is ContentElement contentElement)
+            {
+                var parent = ContentOperations.GetParent(contentElement);
+                if (parent != null)
+                {
+                    return parent;
+                }
+
+                if (contentElement is FrameworkContentElement frameworkContentElement)
+                {
+                    return frameworkContentElement.Parent;
+                }
+
+                return null;
+            }
+
+            return VisualTreeHelper.GetParent(child);
         }
 
         private void FilterOptionCheckBox_Changed(object sender, RoutedEventArgs e)
@@ -598,6 +756,9 @@ namespace ProductCheckerV2
             CampaignSearchTextBox.Text = string.Empty;
             PlatformSearchTextBox.Text = string.Empty;
             QflagSearchTextBox.Text = string.Empty;
+            CampaignDropdownPopup.IsOpen = false;
+            PlatformDropdownPopup.IsOpen = false;
+            QflagDropdownPopup.IsOpen = false;
 
             RefreshFilterViews();
             UpdateSelectedFiltersList();

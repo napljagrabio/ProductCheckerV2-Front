@@ -13,7 +13,8 @@
         WindowStartupLocation="CenterScreen"
         Background="#F8FAFC"
         WindowStyle="SingleBorderWindow"
-        ResizeMode="CanResizeWithGrip">
+        ResizeMode="CanResizeWithGrip"
+        PreviewMouseDown="MainWindow_PreviewMouseDown">
 
     <Window.Resources>
         <SolidColorBrush x:Key="PrimaryBrush" Color="#3B82F6"/>
@@ -1000,6 +1001,7 @@
 
 
                                 <StackPanel Grid.Column="1"
+                                            Margin="0,-12,0,0"
                                             Orientation="Horizontal"
                                             HorizontalAlignment="Right"
                                             VerticalAlignment="Center">
@@ -1025,8 +1027,13 @@
                                     </Grid.RowDefinitions>
 
                                     <!-- Selected Filters (always visible) -->
-                                    <Border Grid.Row="0" Style="{StaticResource FlatCard}" Margin="0,0,0,12">
-                                        <StackPanel Margin="0,-11,0,-11">
+                                    <Border Grid.Row="1" Style="{StaticResource FlatCard}" Margin="0,0,0,0">
+                                        <Grid Margin="0,-11,0,-11">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
                                             <Grid Margin="0,0,0,8">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
@@ -1058,7 +1065,7 @@
                                             </Grid>
 
                                             <!-- Selected Filters Tags -->
-                                            <ScrollViewer MaxHeight="220"
+                                            <ScrollViewer Grid.Row="1"
                                                           Padding="10,5"
                                                           Background="#F7FAFC"
                                                           VerticalScrollBarVisibility="Auto"
@@ -1132,14 +1139,14 @@
                                             </ScrollViewer>
 
                                             <TextBlock x:Name="SelectedCountsText"
+                                                       Grid.Row="2"
                                                        FontSize="12.5"
                                                        Foreground="{StaticResource TextSecondaryBrush}"
                                                        Margin="0,5,0,0"/>
-                                        </StackPanel>
+                                        </Grid>
                                     </Border>
 
-                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                                        <StackPanel>
+                                    <StackPanel Grid.Row="0">
                                             <!-- Filters -->
                                             <Border Style="{StaticResource FlatCard}">
                                                 <StackPanel>
@@ -1147,9 +1154,9 @@
                                                     <Border Background="#F8FAFC"
                                                             CornerRadius="10"
                                                             Padding="16"
-                                                            Margin="0,0,0,10">
+                                                            Margin="0,0,0,8">
                                                         <StackPanel>
-                                                            <DockPanel Margin="0,0,0,12">
+                                                            <DockPanel Margin="0,0,0,5">
                                                                 <Border Width="32"
                                                                         Height="32"
                                                                         Background="{StaticResource PrimaryBrush}"
@@ -1172,26 +1179,44 @@
                                                                 </StackPanel>
                                                             </DockPanel>
 
-                                                            <TextBox x:Name="CampaignSearchTextBox"
-                                                                     Style="{StaticResource FilterTextBox}"
-                                                                     TextChanged="CampaignSearchTextBox_TextChanged"
-                                                                     ToolTip="Search campaigns"
-                                                                     Margin="0,0,0,8"/>
-                                                            <ListBox x:Name="CampaignListBox"
-                                                                     Height="120"
-                                                                     BorderBrush="{StaticResource BorderBrush}"
-                                                                     BorderThickness="1"
-                                                                     Background="White">
-                                                                <ListBox.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <CheckBox Content="{Binding Display}"
-                                                                                  Style="{StaticResource FilterCheckBox}"
-                                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                                  Checked="FilterOptionCheckBox_Changed"
-                                                                                  Unchecked="FilterOptionCheckBox_Changed"/>
-                                                                    </DataTemplate>
-                                                                </ListBox.ItemTemplate>
-                                                            </ListBox>
+                                                            <Grid>
+                                                                <TextBox x:Name="CampaignSearchTextBox"
+                                                                         Style="{StaticResource FilterTextBox}"
+                                                                         MouseDoubleClick="CampaignSearchTextBox_Click"
+                                                                         TextChanged="CampaignSearchTextBox_TextChanged"
+                                                                         Text="🖱️ Double click to search campaign"
+                                                                         Foreground="#69BFDE"
+                                                                         ToolTip="Search campaigns"
+                                                                         Margin="0,0,0,0"/>
+                                                                <Popup x:Name="CampaignDropdownPopup"
+                                                                       PlacementTarget="{Binding ElementName=CampaignSearchTextBox}"
+                                                                       Placement="Bottom"
+                                                                       Width="{Binding ElementName=CampaignSearchTextBox, Path=ActualWidth}"
+                                                                       VerticalOffset="4"
+                                                                       AllowsTransparency="True"
+                                                                       StaysOpen="False">
+                                                                    <Border Background="White"
+                                                                            BorderBrush="{StaticResource BorderBrush}"
+                                                                            BorderThickness="1"
+                                                                            CornerRadius="8"
+                                                                            Padding="0">
+                                                                        <ListBox x:Name="CampaignListBox"
+                                                                                 MaxHeight="260"
+                                                                                 BorderThickness="0"
+                                                                                 Background="White">
+                                                                            <ListBox.ItemTemplate>
+                                                                                <DataTemplate>
+                                                                                    <CheckBox Content="{Binding Display}"
+                                                                                              Style="{StaticResource FilterCheckBox}"
+                                                                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                                              Checked="FilterOptionCheckBox_Changed"
+                                                                                              Unchecked="FilterOptionCheckBox_Changed"/>
+                                                                                </DataTemplate>
+                                                                            </ListBox.ItemTemplate>
+                                                                        </ListBox>
+                                                                    </Border>
+                                                                </Popup>
+                                                            </Grid>
                                                         </StackPanel>
                                                     </Border>
 
@@ -1199,9 +1224,9 @@
                                                     <Border Background="#F8FAFC"
                                                             CornerRadius="10"
                                                             Padding="16"
-                                                            Margin="0,0,0,10">
+                                                            Margin="0,0,0,8">
                                                         <StackPanel>
-                                                            <DockPanel Margin="0,0,0,12">
+                                                            <DockPanel Margin="0,0,0,5">
                                                                 <Border Width="32"
                                                                         Height="32"
                                                                         Background="#10B981"
@@ -1224,26 +1249,44 @@
                                                                 </StackPanel>
                                                             </DockPanel>
 
-                                                            <TextBox x:Name="PlatformSearchTextBox"
-                                                                     Style="{StaticResource FilterTextBox}"
-                                                                     TextChanged="PlatformSearchTextBox_TextChanged"
-                                                                     ToolTip="Search platforms"
-                                                                     Margin="0,0,0,8"/>
-                                                            <ListBox x:Name="PlatformListBox"
-                                                                     Height="120"
-                                                                     BorderBrush="{StaticResource BorderBrush}"
-                                                                     BorderThickness="1"
-                                                                     Background="White">
-                                                                <ListBox.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <CheckBox Content="{Binding Display}"
-                                                                                  Style="{StaticResource FilterCheckBox}"
-                                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                                  Checked="FilterOptionCheckBox_Changed"
-                                                                                  Unchecked="FilterOptionCheckBox_Changed"/>
-                                                                    </DataTemplate>
-                                                                </ListBox.ItemTemplate>
-                                                            </ListBox>
+                                                            <Grid>
+                                                                <TextBox x:Name="PlatformSearchTextBox"
+                                                                         Style="{StaticResource FilterTextBox}"
+                                                                         Text="🖱️ Double click to search platform"
+                                                                         TextChanged="PlatformSearchTextBox_TextChanged"
+                                                                         MouseDoubleClick="PlatformSearchTextBox_Click"
+                                                                         Foreground="#69BFDE"
+                                                                         ToolTip="Search platforms"
+                                                                         Margin="0,0,0,0"/>
+                                                                <Popup x:Name="PlatformDropdownPopup"
+                                                                       PlacementTarget="{Binding ElementName=PlatformSearchTextBox}"
+                                                                       Placement="Bottom"
+                                                                       Width="{Binding ElementName=PlatformSearchTextBox, Path=ActualWidth}"
+                                                                       VerticalOffset="4"
+                                                                       AllowsTransparency="True"
+                                                                       StaysOpen="False">
+                                                                    <Border Background="White"
+                                                                            BorderBrush="{StaticResource BorderBrush}"
+                                                                            BorderThickness="1"
+                                                                            CornerRadius="8"
+                                                                            Padding="0">
+                                                                        <ListBox x:Name="PlatformListBox"
+                                                                                 MaxHeight="260"
+                                                                                 BorderThickness="0"
+                                                                                 Background="White">
+                                                                            <ListBox.ItemTemplate>
+                                                                                <DataTemplate>
+                                                                                    <CheckBox Content="{Binding Display}"
+                                                                                              Style="{StaticResource FilterCheckBox}"
+                                                                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                                              Checked="FilterOptionCheckBox_Changed"
+                                                                                              Unchecked="FilterOptionCheckBox_Changed"/>
+                                                                                </DataTemplate>
+                                                                            </ListBox.ItemTemplate>
+                                                                        </ListBox>
+                                                                    </Border>
+                                                                </Popup>
+                                                            </Grid>
                                                         </StackPanel>
                                                     </Border>
 
@@ -1252,7 +1295,7 @@
                                                             CornerRadius="10"
                                                             Padding="16">
                                                         <StackPanel>
-                                                            <DockPanel Margin="0,0,0,12">
+                                                            <DockPanel Margin="0,0,0,5">
                                                                 <Border Width="32"
                                                                         Height="32"
                                                                         Background="#F59E0B"
@@ -1275,32 +1318,49 @@
                                                                 </StackPanel>
                                                             </DockPanel>
 
-                                                            <TextBox x:Name="QflagSearchTextBox"
-                                                                     Style="{StaticResource FilterTextBox}"
-                                                                     TextChanged="QflagSearchTextBox_TextChanged"
-                                                                     ToolTip="Search Status"
-                                                                     Margin="0,0,0,8"/>
-                                                            <ListBox x:Name="QflagListBox"
-                                                                     Height="120"
-                                                                     BorderBrush="{StaticResource BorderBrush}"
-                                                                     BorderThickness="1"
-                                                                     Background="White">
-                                                                <ListBox.ItemTemplate>
-                                                                    <DataTemplate>
-                                                                        <CheckBox Content="{Binding Display}"
-                                                                                  Style="{StaticResource FilterCheckBox}"
-                                                                                  IsChecked="{Binding IsSelected, Mode=TwoWay}"
-                                                                                  Checked="FilterOptionCheckBox_Changed"
-                                                                                  Unchecked="FilterOptionCheckBox_Changed"/>
-                                                                    </DataTemplate>
-                                                                </ListBox.ItemTemplate>
-                                                            </ListBox>
+                                                            <Grid>
+                                                                <TextBox x:Name="QflagSearchTextBox"
+                                                                         Style="{StaticResource FilterTextBox}"
+                                                                         Text="🖱️ Double click to search status"
+                                                                         TextChanged="QflagSearchTextBox_TextChanged"
+                                                                         MouseDoubleClick="QflagSearchTextBox_Click"
+                                                                         Foreground="#69BFDE"
+                                                                         ToolTip="Search Status"
+                                                                         Margin="0,0,0,0"/>
+                                                                <Popup x:Name="QflagDropdownPopup"
+                                                                       PlacementTarget="{Binding ElementName=QflagSearchTextBox}"
+                                                                       Placement="Bottom"
+                                                                       Width="{Binding ElementName=QflagSearchTextBox, Path=ActualWidth}"
+                                                                       VerticalOffset="4"
+                                                                       AllowsTransparency="True"
+                                                                       StaysOpen="False">
+                                                                    <Border Background="White"
+                                                                            BorderBrush="{StaticResource BorderBrush}"
+                                                                            BorderThickness="1"
+                                                                            CornerRadius="8"
+                                                                            Padding="0">
+                                                                        <ListBox x:Name="QflagListBox"
+                                                                                 MaxHeight="260"
+                                                                                 BorderThickness="0"
+                                                                                 Background="White">
+                                                                            <ListBox.ItemTemplate>
+                                                                                <DataTemplate>
+                                                                                    <CheckBox Content="{Binding Display}"
+                                                                                              Style="{StaticResource FilterCheckBox}"
+                                                                                              IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                                                                              Checked="FilterOptionCheckBox_Changed"
+                                                                                              Unchecked="FilterOptionCheckBox_Changed"/>
+                                                                                </DataTemplate>
+                                                                            </ListBox.ItemTemplate>
+                                                                        </ListBox>
+                                                                    </Border>
+                                                                </Popup>
+                                                            </Grid>
                                                         </StackPanel>
                                                     </Border>
                                                 </StackPanel>
                                             </Border>
                                         </StackPanel>
-                                    </ScrollViewer>
                                 </Grid>
 
                                 <!-- Upload Panel -->

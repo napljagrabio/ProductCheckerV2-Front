@@ -18,6 +18,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Microsoft.Win32;
 using System.Windows.Media.Effects;
 
@@ -41,6 +42,7 @@ namespace ProductCheckerV2
         private int _pendingRequests = 0;
         private readonly DispatcherTimer _searchDebounceTimer;
         private const int SearchDebounceMilliseconds = 300;
+        private const int PageTransitionMilliseconds = 120;
 
         public ViewRequestsPage()
         {
@@ -311,15 +313,20 @@ namespace ProductCheckerV2
         {
             if (PageInfoText != null)
             {
+                PageInfoText.Text = $"Page {_currentPage} of {_totalPages}";
+            }
+
+            if (PageRangeText != null)
+            {
                 if (_totalRequests == 0)
                 {
-                    PageInfoText.Text = "0 of 0";
+                    PageRangeText.Text = "0-0 of 0";
                 }
                 else
                 {
                     int start = ((_currentPage - 1) * PageSize) + 1;
                     int end = Math.Min(_currentPage * PageSize, _totalRequests);
-                    PageInfoText.Text = $"Page {_currentPage} of {_totalPages} - {start}-{end} of {_totalRequests}";
+                    PageRangeText.Text = $"{start}-{end} of {_totalRequests}";
                 }
             }
 
@@ -332,6 +339,91 @@ namespace ProductCheckerV2
             {
                 NextPageButton.IsEnabled = _currentPage < _totalPages;
             }
+
+            if (FirstPageButton != null)
+            {
+                FirstPageButton.IsEnabled = _currentPage > 1;
+            }
+
+            if (LastPageButton != null)
+            {
+                LastPageButton.IsEnabled = _currentPage < _totalPages;
+            }
+
+            if (GoToPageButton != null)
+            {
+                GoToPageButton.IsEnabled = _totalRequests > 0;
+            }
+
+            if (PageJumpTextBox != null && !PageJumpTextBox.IsKeyboardFocusWithin)
+            {
+                PageJumpTextBox.Text = _currentPage.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        private async Task NavigateToPageAsync(int targetPage)
+        {
+            if (targetPage < 1 || targetPage > _totalPages || targetPage == _currentPage)
+            {
+                return;
+            }
+
+            _currentPage = targetPage;
+            await RunPageTransitionAsync();
+            await LoadRequestsPageAsync(preserveSelection: true, showErrors: false);
+        }
+
+        private async Task RunPageTransitionAsync()
+        {
+            if (RequestsListBox == null)
+            {
+                return;
+            }
+
+            var fadeOut = new DoubleAnimation
+            {
+                To = 0.35,
+                Duration = TimeSpan.FromMilliseconds(PageTransitionMilliseconds),
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            await BeginAnimationAsync(RequestsListBox, UIElement.OpacityProperty, fadeOut);
+
+            var fadeIn = new DoubleAnimation
+            {
+                To = 1.0,
+                Duration = TimeSpan.FromMilliseconds(PageTransitionMilliseconds),
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            await BeginAnimationAsync(RequestsListBox, UIElement.OpacityProperty, fadeIn);
+        }
+
+        private static Task BeginAnimationAsync(UIElement target, DependencyProperty property, AnimationTimeline animation)
+        {
+            var tcs = new TaskCompletionSource<bool>();
+
+            if (animation == null)
+            {
+                tcs.SetResult(true);
+                return tcs.Task;
+            }
+
+            void OnCompleted(object? sender, EventArgs e)
+            {
+                animation.Completed -= OnCompleted;
+                tcs.TrySetResult(true);
+            }
+
+            animation.Completed += OnCompleted;
+            Storyboard.SetTarget(animation, target);
+            Storyboard.SetTargetProperty(animation, new PropertyPath(property));
+
+            var storyboard = new Storyboard();
+            storyboard.Children.Add(animation);
+            storyboard.Begin();
+
+            return tcs.Task;
         }
 
         private void LoadListingsForRequest(long requestId)
@@ -820,24 +912,60 @@ namespace ProductCheckerV2
 
         private async void PrevPageButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentPage <= 1)
-            {
-                return;
-            }
-
-            _currentPage--;
-            await LoadRequestsPageAsync(preserveSelection: true, showErrors: false);
+            await NavigateToPageAsync(_currentPage - 1);
         }
 
         private async void NextPageButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentPage >= _totalPages)
+            await NavigateToPageAsync(_currentPage + 1);
+        }
+
+        private async void FirstPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            await NavigateToPageAsync(1);
+        }
+
+        private async void LastPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            await NavigateToPageAsync(_totalPages);
+        }
+
+        private async void GoToPageButton_Click(object sender, RoutedEventArgs e)
+        {
+            await GoToPageFromInputAsync();
+        }
+
+        private void PageJumpTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
+        {
+            e.Handled = e.Text.Any(c => !char.IsDigit(c));
+        }
+
+        private async void PageJumpTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key != Key.Enter)
             {
                 return;
             }
 
-            _currentPage++;
-            await LoadRequestsPageAsync(preserveSelection: true, showErrors: false);
+            e.Handled = true;
+            await GoToPageFromInputAsync();
+        }
+
+        private async Task GoToPageFromInputAsync()
+        {
+            if (PageJumpTextBox == null)
+            {
+                return;
+            }
+
+            if (!int.TryParse(PageJumpTextBox.Text, out int targetPage))
+            {
+                PageJumpTextBox.Text = _currentPage.ToString(CultureInfo.InvariantCulture);
+                return;
+            }
+
+            targetPage = Math.Max(1, Math.Min(targetPage, _totalPages));
+            await NavigateToPageAsync(targetPage);
         }
 
         private void UpdateRequestCountText()
