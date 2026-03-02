@@ -986,7 +986,7 @@
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <!-- Left Panel: Upload Section -->
-                    <Border Grid.Column="0" Margin="0,0,20,20" Style="{StaticResource ModernCard}">
+                    <Border Grid.Column="0" Margin="0,0,10,20" Style="{StaticResource ModernCard}">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -1065,12 +1065,14 @@
                                             </Grid>
 
                                             <!-- Selected Filters Tags -->
-                                            <ScrollViewer Grid.Row="1"
+                                            <ScrollViewer x:Name="SelectedFiltersScrollViewer"
+                                                          Grid.Row="1"
                                                           Padding="10,5"
                                                           Background="#F7FAFC"
                                                           VerticalScrollBarVisibility="Auto"
                                                           HorizontalScrollBarVisibility="Disabled">
                                                 <ItemsControl x:Name="SelectedFiltersContainer"
+                                                              Width="{Binding ElementName=SelectedFiltersScrollViewer, Path=ViewportWidth}"
                                                               ItemsSource="{Binding SelectedFilters}">
                                                 <ItemsControl.ItemsPanel>
                                                     <ItemsPanelTemplate>
@@ -1081,32 +1083,32 @@
                                                     <DataTemplate>
                                                         <Border Background="#EFF6FF"
                                                                 CornerRadius="12"
-                                                                Padding="10,6"
+                                                                Padding="8,4"
                                                                 Margin="0,4,8,4"
                                                                 BorderBrush="#DBEAFE"
                                                                 BorderThickness="1">
                                                             <DockPanel>
                                                                 <TextBlock Text="{Binding Category}" 
                                                                            Foreground="#1D4ED8"
-                                                                           FontSize="12"
+                                                                           FontSize="11"
                                                                            FontWeight="SemiBold"
-                                                                           Margin="0,0,6,0"
+                                                                           Margin="0,0,5,0"
                                                                            VerticalAlignment="Center"/>
                                                                 <TextBlock Text="{Binding Display}" 
                                                                            Foreground="#1E40AF"
-                                                                           FontSize="12.5"
+                                                                           FontSize="11"
                                                                            VerticalAlignment="Center"
                                                                            TextTrimming="CharacterEllipsis"
-                                                                           MaxWidth="150"/>
+                                                                           MaxWidth="130"/>
                                                                 <Button Content="×"
-                                                                        Width="20"
-                                                                        Height="20"
+                                                                        Width="18"
+                                                                        Height="18"
                                                                         Padding="0"
-                                                                        Margin="8,0,0,0"
+                                                                        Margin="6,0,0,0"
                                                                         Background="Transparent"
                                                                         Foreground="#64748B"
                                                                         BorderThickness="0"
-                                                                        FontSize="14"
+                                                                        FontSize="12"
                                                                         FontWeight="Bold"
                                                                         VerticalAlignment="Center"
                                                                         HorizontalAlignment="Center"
@@ -1116,11 +1118,13 @@
                                                                         <ControlTemplate TargetType="Button">
                                                                             <Border x:Name="border"
                                                                                     Background="{TemplateBinding Background}"
-                                                                                    CornerRadius="10"
+                                                                                    CornerRadius="9"
                                                                                     Width="{TemplateBinding Width}"
                                                                                     Height="{TemplateBinding Height}">
-                                                                                <ContentPresenter HorizontalAlignment="Center" 
-                                                                                                VerticalAlignment="Center"/>
+                                                                                <Viewbox Stretch="Uniform">
+                                                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                                                      VerticalAlignment="Center"/>
+                                                                                </Viewbox>
                                                                             </Border>
                                                                             <ControlTemplate.Triggers>
                                                                                 <Trigger Property="IsMouseOver" Value="True">

@@ -759,6 +759,9 @@ namespace ProductCheckerV2
             CampaignDropdownPopup.IsOpen = false;
             PlatformDropdownPopup.IsOpen = false;
             QflagDropdownPopup.IsOpen = false;
+            CampaignSearchTextBox.Text = "🖱️ Double click to search campaign";
+            PlatformSearchTextBox.Text = "🖱️ Double click to search platform";
+            QflagSearchTextBox.Text = "🖱️ Double click to search status";
 
             RefreshFilterViews();
             UpdateSelectedFiltersList();

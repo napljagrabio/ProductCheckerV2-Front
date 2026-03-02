@@ -89,7 +89,7 @@
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Background" Value="{StaticResource PrimaryButtonBrush}"/>
-            <Setter Property="BorderBrush" Value="#2748B0"/>
+            <Setter Property="BorderBrush" Value="LightGray"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -348,14 +348,24 @@
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
+        <LinearGradientBrush x:Key="PaginationAccentBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#B8E4FF" Offset="0"/>
+            <GradientStop Color="#65B9F6" Offset="1"/>
+        </LinearGradientBrush>
+
+        <LinearGradientBrush x:Key="PaginationNeutralBrush" StartPoint="0,0" EndPoint="0,1">
+            <GradientStop Color="#F2F6FC" Offset="0"/>
+            <GradientStop Color="#DEE8F6" Offset="1"/>
+        </LinearGradientBrush>
+
         <Style x:Key="PaginationNavButton" TargetType="Button">
-            <Setter Property="Width" Value="34"/>
-            <Setter Property="Height" Value="34"/>
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#334155"/>
-            <Setter Property="Background" Value="#F8FAFC"/>
-            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="Width" Value="48"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="FontSize" Value="21"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="#7D9ABF"/>
+            <Setter Property="Background" Value="{StaticResource PaginationNeutralBrush}"/>
+            <Setter Property="BorderBrush" Value="#C0D3EA"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -366,23 +376,67 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="10">
+                                CornerRadius="14">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="12"
+                                                  ShadowDepth="1"
+                                                  Opacity="0.18"
+                                                  Color="#6E8DB2"/>
+                            </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#E0E7FF"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#93C5FD"/>
-                                <Setter Property="Foreground" Value="#1D4ED8"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#95B5DA"/>
+                                <Setter Property="Foreground" Value="#668DBE"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#DBEAFE"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.87"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Background" Value="#F1F5F9"/>
-                                <Setter TargetName="border" Property="BorderBrush" Value="#E2E8F0"/>
-                                <Setter Property="Foreground" Value="#94A3B8"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.55"/>
+                                <Setter Property="Foreground" Value="#A4B8D1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PaginationAccentButton" TargetType="Button" BasedOn="{StaticResource PaginationNavButton}">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="Foreground" Value="#2E7EC1"/>
+            <Setter Property="Background" Value="{StaticResource PaginationAccentBrush}"/>
+            <Setter Property="BorderBrush" Value="#7EBDF2"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="14">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="13"
+                                                  ShadowDepth="1"
+                                                  Opacity="0.24"
+                                                  Color="#4A9EDC"/>
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#66AEE8"/>
+                                <Setter Property="Foreground" Value="#1E6DB5"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.88"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.55"/>
+                                <Setter Property="Foreground" Value="#86B8DF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -391,13 +445,13 @@
         </Style>
 
         <Style x:Key="PaginationJumpTextBox" TargetType="TextBox">
-            <Setter Property="Width" Value="52"/>
-            <Setter Property="Height" Value="30"/>
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Width" Value="100"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Foreground" Value="#0F172A"/>
-            <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#CBD5E1"/>
+            <Setter Property="Foreground" Value="#2F4A73"/>
+            <Setter Property="Background" Value="#E7EDF7"/>
+            <Setter Property="BorderBrush" Value="#BFD0E4"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="HorizontalContentAlignment" Value="Center"/>
             <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -409,14 +463,14 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="8">
+                                CornerRadius="14">
                             <ScrollViewer x:Name="PART_ContentHost"
                                           Margin="{TemplateBinding Padding}"
                                           VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsKeyboardFocused" Value="True">
-                                <Setter TargetName="border" Property="BorderBrush" Value="#60A5FA"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#73B7EF"/>
                                 <Setter TargetName="border" Property="BorderThickness" Value="2"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -718,7 +772,7 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="320"/>
+                <ColumnDefinition Width="440"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
@@ -729,7 +783,7 @@
             <Border Grid.Row="1"
                     Grid.Column="0"
                     Style="{StaticResource ModernCard}"
-                    Margin="0,-10,20,0">
+                    Margin="0,-10,10,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -957,13 +1011,20 @@
                     <!-- Pagination Controls -->
                     <Border x:Name="PaginationContainer"
                             Grid.Row="2"
-                            HorizontalAlignment="Stretch"
+                            HorizontalAlignment="Center"
                             Margin="0,14,0,0"
-                            Padding="10,8"
-                            Background="#F7FAFF"
-                            BorderBrush="#D7E3F4"
+                            Padding="22,14"
+                            Background="#E8EDF7"
+                            BorderBrush="#D0DDEE"
                             BorderThickness="1"
-                            CornerRadius="14">
+                            CornerRadius="32"
+                            MaxWidth="430">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="20"
+                                              ShadowDepth="2"
+                                              Opacity="0.2"
+                                              Color="#8DAFD3"/>
+                        </Border.Effect>
                         <Grid HorizontalAlignment="Center"
                               VerticalAlignment="Center">
                             <Grid.RowDefinitions>
@@ -974,52 +1035,52 @@
                             <StackPanel Grid.Row="0"
                                         Orientation="Horizontal"
                                         HorizontalAlignment="Center"
-                                        Margin="0,0,0,4">
-                                <Button x:Name="FirstPageButton"
-                                        Content="&#x23EE;"
-                                        Style="{StaticResource PaginationNavButton}"
-                                        Width="30"
-                                        Height="30"
-                                        Margin="0,0,4,0"
+                                        Margin="0,0,0,10">
+                                <Button x:Name="FirstPageButton" Grid.Column="0"
+                                        Content="&#x00AB;"
+                                        Style="{StaticResource PaginationAccentButton}"
+                                        Width="40"
+                                        Height="36"
+                                        Margin="0,0,6,0"
                                         ToolTip="First page"
                                         Click="FirstPageButton_Click"/>
                                 <Button x:Name="PrevPageButton"
                                         Content="&#x2039;"
                                         Style="{StaticResource PaginationNavButton}"
-                                        Width="30"
-                                        Height="30"
-                                        Margin="0,0,8,0"
+                                        Width="40"
+                                        Height="36"
+                                        Margin="0,0,10,0"
                                         ToolTip="Previous page"
                                         Click="PrevPageButton_Click"/>
 
-                                <StackPanel Margin="0,0,8,0">
+                                <StackPanel Margin="0,0,10,0" Width="132">
                                     <TextBlock x:Name="PageInfoText"
                                                Text="Page 1 of 1"
-                                               FontSize="11"
+                                               FontSize="13"
                                                FontWeight="SemiBold"
-                                               Foreground="#334155"
+                                               Foreground="#3D567D"
                                                HorizontalAlignment="Center"/>
                                     <TextBlock x:Name="PageRangeText"
                                                Text="0-0 of 0"
-                                               FontSize="10"
-                                               Foreground="#64748B"
+                                               FontSize="11"
+                                               Foreground="#56729A"
                                                HorizontalAlignment="Center"
-                                               Margin="0,1,0,0"/>
+                                               Margin="0,2,0,0"/>
                                 </StackPanel>
 
                                 <Button x:Name="NextPageButton"
                                         Content="&#x203A;"
                                         Style="{StaticResource PaginationNavButton}"
-                                        Width="30"
-                                        Height="30"
-                                        Margin="0,0,4,0"
+                                        Width="40"
+                                        Height="36"
+                                        Margin="0,0,6,0"
                                         ToolTip="Next page"
                                         Click="NextPageButton_Click"/>
                                 <Button x:Name="LastPageButton"
-                                        Content="&#x23ED;"
-                                        Style="{StaticResource PaginationNavButton}"
-                                        Width="30"
-                                        Height="30"
+                                        Content="&#x00BB;"
+                                        Style="{StaticResource PaginationAccentButton}"
+                                        Width="40"
+                                        Height="36"
                                         ToolTip="Last page"
                                         Click="LastPageButton_Click"/>
                             </StackPanel>
@@ -1029,22 +1090,23 @@
                                         HorizontalAlignment="Center"
                                         Margin="0,0,0,2">
                                 <TextBlock Text="Go to"
-                                           FontSize="10.5"
-                                           Foreground="#475569"
+                                           FontSize="12.5"
+                                           Foreground="#425C82"
                                            VerticalAlignment="Center"
-                                           Margin="0,0,6,0"/>
+                                           Margin="0,0,8,0"/>
                                 <TextBox x:Name="PageJumpTextBox"
                                          Style="{StaticResource PaginationJumpTextBox}"
-                                         Width="46"
-                                         Height="28"
+                                         Width="102"
+                                         Height="36"
                                          PreviewTextInput="PageJumpTextBox_PreviewTextInput"
                                          KeyDown="PageJumpTextBox_KeyDown"/>
                                 <Button x:Name="GoToPageButton"
                                         Content="Go"
-                                        Style="{StaticResource PaginationNavButton}"
-                                        Width="36"
-                                        Height="28"
-                                        Margin="6,0,0,0"
+                                        Style="{StaticResource PaginationAccentButton}"
+                                        Width="72"
+                                        Height="36"
+                                        FontSize="15"
+                                        Margin="8,0,0,0"
                                         ToolTip="Jump to page"
                                         Click="GoToPageButton_Click"/>
                             </StackPanel>
