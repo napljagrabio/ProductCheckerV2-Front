@@ -1,4 +1,4 @@
-﻿<Page x:Class="ProductCheckerV2.ViewRequestsPage"
+<Page x:Class="ProductCheckerV2.ViewRequestsPage"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -350,7 +350,7 @@
 
         <LinearGradientBrush x:Key="PaginationAccentBrush" StartPoint="0,0" EndPoint="0,1">
             <GradientStop Color="#B8E4FF" Offset="0"/>
-            <GradientStop Color="#65B9F6" Offset="1"/>
+            <GradientStop Color="#4361ee" Offset="1"/>
         </LinearGradientBrush>
 
         <LinearGradientBrush x:Key="PaginationNeutralBrush" StartPoint="0,0" EndPoint="0,1">
@@ -406,7 +406,7 @@
 
         <Style x:Key="PaginationAccentButton" TargetType="Button" BasedOn="{StaticResource PaginationNavButton}">
             <Setter Property="FontSize" Value="20"/>
-            <Setter Property="Foreground" Value="#2E7EC1"/>
+            <Setter Property="Foreground" Value="Black"/>
             <Setter Property="Background" Value="{StaticResource PaginationAccentBrush}"/>
             <Setter Property="BorderBrush" Value="#7EBDF2"/>
             <Setter Property="Template">
