@@ -1,4 +1,4 @@
-﻿using ClosedXML.Excel;
+using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Win32;
 using ProductCheckerV2.Common;
@@ -11,6 +11,8 @@ using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -39,15 +41,29 @@ namespace ProductCheckerV2
         private int _totalPages = 1;
         private int _totalRequests = 0;
         private int _pendingRequests = 0;
+        private bool _hasShownConnectionIssueModal = false;
+        private bool _hasShownCacheFallbackModal = false;
+        private bool _hasStartedInitialLoad = false;
         private readonly DispatcherTimer _searchDebounceTimer;
         private const int SearchDebounceMilliseconds = 300;
         private const int PageTransitionMilliseconds = 120;
+        private const int DataQueryTimeoutSeconds = 12;
+        private readonly string _cacheFilePath;
+        private readonly object _cacheLock = new();
+        private ViewRequestsCacheData _cacheData = new();
+        private bool _isRequestsLoading = false;
+        private bool _isListingsLoading = false;
+        private bool _suppressNextListingSkeleton = false;
+        private bool _suppressNextListingReload = false;
+        private bool _isRestoringRequestSelection = false;
 
         public ViewRequestsPage()
         {
             InitializeComponent();
             Loaded += ViewRequestsPage_Loaded;
             Unloaded += ViewRequestsPage_Unloaded;
+            _cacheFilePath = GetCacheFilePath();
+            LoadCacheFromDisk();
 
             _searchDebounceTimer = new DispatcherTimer
             {
@@ -58,8 +74,14 @@ namespace ProductCheckerV2
 
         private void ViewRequestsPage_Loaded(object sender, RoutedEventArgs e)
         {
+            if (_hasStartedInitialLoad)
+            {
+                return;
+            }
+
+            _hasStartedInitialLoad = true;
             InitializeAutoRefresh();
-            LoadRequests();
+            Dispatcher.BeginInvoke(new Action(LoadRequests), DispatcherPriority.ContextIdle);
         }
 
         private void ViewRequestsPage_Unloaded(object sender, RoutedEventArgs e)
@@ -80,7 +102,7 @@ namespace ProductCheckerV2
             _lastRefreshTime = DateTime.Now;
         }
 
-        private void AutoRefreshTimer_Tick(object sender, EventArgs e)
+        private async void AutoRefreshTimer_Tick(object sender, EventArgs e)
         {
             if (_isRefreshing) return; // Prevent overlapping refreshes
 
@@ -88,12 +110,8 @@ namespace ProductCheckerV2
 
             try
             {
-                // Ensuring UI updates happen on the UI thread
-                Dispatcher.InvokeAsync(async () =>
-                {
-                    await RefreshDataAsync();
-                    _lastRefreshTime = DateTime.Now;
-                }, DispatcherPriority.Background);
+                await RefreshDataAsync();
+                _lastRefreshTime = DateTime.Now;
             }
             catch (Exception ex)
             {
@@ -109,7 +127,7 @@ namespace ProductCheckerV2
         {
             try
             {
-                await LoadRequestsPageAsync(preserveSelection: true, showErrors: false);
+                await LoadRequestsPageAsync(preserveSelection: true, showErrors: false, showSkeleton: false);
                 _lastRefreshTime = DateTime.Now;
             }
             catch (Exception ex)
@@ -123,8 +141,13 @@ namespace ProductCheckerV2
             await LoadRequestsPageAsync(preserveSelection: false, showErrors: true);
         }
 
-        private async Task LoadRequestsPageAsync(bool preserveSelection, bool showErrors)
+        private async Task LoadRequestsPageAsync(bool preserveSelection, bool showErrors, bool showSkeleton = true)
         {
+            if (showSkeleton)
+            {
+                SetRequestsLoadingState(true);
+            }
+
             try
             {
                 using var context = new ProductCheckerDbContext();
@@ -269,43 +292,132 @@ namespace ProductCheckerV2
                 ApplySelectionAfterLoad(preserveSelection);
 
                 _lastRefreshTime = DateTime.Now;
+                _hasShownConnectionIssueModal = false;
+                MergeRequestsIntoCache(_allRequests);
+                SaveCacheToDisk();
             }
             catch (Exception ex)
             {
+                if (TryLoadRequestsFromCache(preserveSelection))
+                {
+                    if (!_hasShownCacheFallbackModal)
+                    {
+                        _hasShownCacheFallbackModal = true;
+                        var ownerWindow = Window.GetWindow(this);
+                        ModalDialogService.Show(
+                            "Live data is unavailable. Showing cached requests data.",
+                            "Using Cached Data",
+                            ModalDialogType.Warning,
+                            ownerWindow);
+                    }
+                    return;
+                }
+
                 if (showErrors)
                 {
-                    MessageBox.Show($"Error loading requests: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
+                    ModalDialogService.Show($"Error loading requests: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
                         "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 else
                 {
+                    if (!_hasShownConnectionIssueModal && IsDatabaseConnectionIssue(ex))
+                    {
+                        _hasShownConnectionIssueModal = true;
+                        var ownerWindow = Window.GetWindow(this);
+                        ModalDialogService.Show(
+                            "Cannot connect to the database. Please check your DB server and credentials, then try again.\n\n" + ex.Message,
+                            "Database Connection Error",
+                            ModalDialogType.Error,
+                            ownerWindow);
+                    }
+
                     Console.WriteLine($"Error loading requests: {ex.Message}");
+                }
+            }
+            finally
+            {
+                if (showSkeleton)
+                {
+                    SetRequestsLoadingState(false);
                 }
             }
         }
 
+        private static bool IsDatabaseConnectionIssue(Exception ex)
+        {
+            var message = $"{ex.Message} {ex.InnerException?.Message}".ToLowerInvariant();
+
+            return message.Contains("unable to connect") ||
+                   message.Contains("can't connect") ||
+                   message.Contains("cannot connect") ||
+                   message.Contains("access denied") ||
+                   message.Contains("authentication") ||
+                   message.Contains("password") ||
+                   message.Contains("connection");
+        }
+
         private void ApplySelectionAfterLoad(bool preserveSelection)
         {
-            if (!_allRequests.Any())
+            _isRestoringRequestSelection = true;
+
+            try
             {
-                _selectedRequest = null;
-                RequestsListBox.SelectedItem = null;
-                ClearListings();
-                UpdateSelectedRequestDisplay(null);
+                if (!_allRequests.Any())
+                {
+                    _selectedRequest = null;
+                    RequestsListBox.SelectedItem = null;
+                    ClearListings();
+                    UpdateSelectedRequestDisplay(null);
+                    return;
+                }
+
+                if (preserveSelection && _selectedRequest != null)
+                {
+                    var match = _allRequests.FirstOrDefault(r => r.Id == _selectedRequest.Id);
+                    if (match != null)
+                    {
+                        _suppressNextListingReload = true;
+                        _suppressNextListingSkeleton = true;
+                        RequestsListBox.SelectedItem = match;
+                        return;
+                    }
+                }
+
+                RequestsListBox.SelectedIndex = 0;
+            }
+            finally
+            {
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    _isRestoringRequestSelection = false;
+                }), DispatcherPriority.ContextIdle);
+            }
+        }
+
+        private void SetRequestsLoadingState(bool isLoading)
+        {
+            if (_isRequestsLoading == isLoading)
+            {
                 return;
             }
 
-            if (preserveSelection && _selectedRequest != null)
+            _isRequestsLoading = isLoading;
+
+            if (RequestsSkeletonOverlay != null)
             {
-                var match = _allRequests.FirstOrDefault(r => r.Id == _selectedRequest.Id);
-                if (match != null)
-                {
-                    RequestsListBox.SelectedItem = match;
-                    return;
-                }
+                RequestsSkeletonOverlay.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
             }
 
-            RequestsListBox.SelectedIndex = 0;
+            if (RequestsListBox != null)
+            {
+                RequestsListBox.Visibility = isLoading ? Visibility.Hidden : Visibility.Visible;
+            }
+
+            if (PaginationContainer != null)
+            {
+                PaginationContainer.Opacity = isLoading ? 0.55 : 1.0;
+                PaginationContainer.IsEnabled = !isLoading;
+            }
         }
 
         private void UpdatePaginationControls()
@@ -425,16 +537,23 @@ namespace ProductCheckerV2
             return tcs.Task;
         }
 
-        private void LoadListingsForRequest(long requestId)
+        private async Task LoadListingsForRequestAsync(long requestId, bool showSkeleton = true)
         {
+            if (showSkeleton)
+            {
+                SetListingsLoadingState(true);
+            }
+
             try
             {
                 using var context = new ProductCheckerDbContext();
 
-                var request = context.Requests
-                    .Where(r => r.Id == requestId)
-                    .Select(r => new { r.RequestInfoId })
-                    .FirstOrDefault();
+                var request = await WithTimeoutAsync(
+                    token => context.Requests
+                        .Where(r => r.Id == requestId)
+                        .Select(r => new { r.RequestInfoId })
+                        .FirstOrDefaultAsync(token),
+                    DataQueryTimeoutSeconds);
 
                 if (request == null || request.RequestInfoId == 0)
                 {
@@ -444,71 +563,61 @@ namespace ProductCheckerV2
                     return;
                 }
 
-                var connection = context.Database.GetDbConnection();
-                try
-                {
-                    if (connection.State != System.Data.ConnectionState.Open)
-                        connection.Open();
-
-                    using var command = connection.CreateCommand();
-                    command.CommandText = @"
-                                            SELECT 
-                                                listing_id, 
-                                                case_number, 
-                                                platform, 
-                                                url, 
-                                                status, 
-                                                checked_date, 
-                                                error_detail, 
-                                                note 
-                                            FROM product_checker_listings 
-                                            WHERE request_info_id = @requestInfoId 
-                                            ORDER BY id";
-
-                    var param = command.CreateParameter();
-                    param.ParameterName = "@requestInfoId";
-                    param.Value = request.RequestInfoId;
-                    command.Parameters.Add(param);
-
-                    using var reader = command.ExecuteReader();
-                    var listings = new List<ListingViewModel>();
-
-                    while (reader.Read())
-                    {
-                        listings.Add(new ListingViewModel
+                List<ListingViewModel> listings = await WithTimeoutAsync<List<ListingViewModel>>(
+                    token => context.ProductListings
+                        .Where(l => l.RequestInfoId == request.RequestInfoId)
+                        .OrderBy(l => l.Id)
+                        .Select(l => new ListingViewModel
                         {
-                            ListingId = SafeGetString(reader, 0),
-                            CaseNumber = SafeGetString(reader, 1),
-                            Platform = SafeGetString(reader, 2),
-                            Url = SafeGetString(reader, 3),
-                            UrlStatus = SafeGetString(reader, 4),
-                            CheckedDate = SafeGetString(reader, 5),
-                            Notes = SafeGetString(reader, 7)
-                        });
-                    }
+                            ListingId = l.ListingId.ToString(),
+                            CaseNumber = l.CaseNumber ?? string.Empty,
+                            Platform = l.Platform ?? string.Empty,
+                            Url = l.Url ?? string.Empty,
+                            UrlStatus = l.UrlStatus ?? string.Empty,
+                            CheckedDate = l.CheckedDate ?? string.Empty,
+                            Notes = l.Note ?? string.Empty
+                        })
+                        .ToListAsync(token),
+                    DataQueryTimeoutSeconds);
 
-                    reader.Close();
-
-                    ListingsDataGrid.ItemsSource = listings;
-                    ListingCountText.Text = $"{listings.Count} listings";
-                    UpdateListingProgress(listings);
-                }
-                finally
+                if (ShouldReplaceListingsData(listings))
                 {
-                    if (connection.State == System.Data.ConnectionState.Open)
-                        connection.Close();
+                    ListingsDataGrid.ItemsSource = listings;
                 }
+                ListingCountText.Text = $"{listings.Count} listings";
+                UpdateListingProgress(listings);
+
+                UpdateListingsCache(requestId, listings);
+                SaveCacheToDisk();
             }
             catch (Exception ex)
             {
+                if (TryLoadListingsFromCache(requestId, out var cachedListings))
+                {
+                    if (ShouldReplaceListingsData(cachedListings))
+                    {
+                        ListingsDataGrid.ItemsSource = cachedListings;
+                    }
+                    ListingCountText.Text = $"{cachedListings.Count} listings (cached)";
+                    UpdateListingProgress(cachedListings);
+                    return;
+                }
+
                 if (!_isRefreshing)
                 {
-                    MessageBox.Show($"Error loading listings: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
+                    ModalDialogService.Show($"Error loading listings: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
                         "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
                 ListingsDataGrid.ItemsSource = null;
                 ListingCountText.Text = "Error loading listings";
                 UpdateListingProgress(null);
+            }
+            finally
+            {
+                if (showSkeleton)
+                {
+                    SetListingsLoadingState(false);
+                }
             }
         }
 
@@ -600,6 +709,40 @@ namespace ProductCheckerV2
 
             return status.Equals("Available", StringComparison.OrdinalIgnoreCase) ||
                    status.Equals("Not Available", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool ShouldReplaceListingsData(IReadOnlyList<ListingViewModel> nextListings)
+        {
+            if (ListingsDataGrid?.ItemsSource is not IEnumerable<ListingViewModel> currentEnumerable)
+            {
+                return true;
+            }
+
+            var currentListings = currentEnumerable.ToList();
+
+            if (currentListings.Count != nextListings.Count)
+            {
+                return true;
+            }
+
+            for (int i = 0; i < currentListings.Count; i++)
+            {
+                var current = currentListings[i];
+                var next = nextListings[i];
+
+                if (!string.Equals(current.ListingId, next.ListingId, StringComparison.Ordinal) ||
+                    !string.Equals(current.CaseNumber, next.CaseNumber, StringComparison.Ordinal) ||
+                    !string.Equals(current.Platform, next.Platform, StringComparison.Ordinal) ||
+                    !string.Equals(current.Url, next.Url, StringComparison.Ordinal) ||
+                    !string.Equals(current.UrlStatus, next.UrlStatus, StringComparison.Ordinal) ||
+                    !string.Equals(current.CheckedDate, next.CheckedDate, StringComparison.Ordinal) ||
+                    !string.Equals(current.Notes, next.Notes, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         //private bool CheckForChanges(List<RequestViewModel> newRequests)
@@ -780,13 +923,45 @@ namespace ProductCheckerV2
         {
             if (RequestsListBox.SelectedItem is RequestViewModel selectedRequest)
             {
+                long? previousSelectedId = _selectedRequest?.Id;
                 _selectedRequest = selectedRequest;
-                LoadListingsForRequest(selectedRequest.Id);
+
+                bool showSkeleton = !_isRefreshing && !_suppressNextListingSkeleton;
+                _suppressNextListingSkeleton = false;
+
+                if (_isRefreshing && previousSelectedId.HasValue && previousSelectedId.Value == selectedRequest.Id)
+                {
+                    _suppressNextListingReload = false;
+                    UpdateSelectedRequestDisplay(selectedRequest);
+                    ExportButton.IsEnabled = IsExportAllowed(selectedRequest.Status);
+                    return;
+                }
+
+                if (_suppressNextListingReload)
+                {
+                    _suppressNextListingReload = false;
+                    if (ListingsDataGrid?.ItemsSource == null)
+                    {
+                        _ = LoadListingsForRequestAsync(selectedRequest.Id, showSkeleton: false);
+                    }
+                }
+                else
+                {
+                    _ = LoadListingsForRequestAsync(selectedRequest.Id, showSkeleton: showSkeleton);
+                }
+
                 UpdateSelectedRequestDisplay(selectedRequest);
                 ExportButton.IsEnabled = IsExportAllowed(selectedRequest.Status);
             }
             else
             {
+                if (_isRestoringRequestSelection || _isRefreshing)
+                {
+                    return;
+                }
+
+                _suppressNextListingReload = false;
+                _suppressNextListingSkeleton = false;
                 ClearListings();
                 UpdateSelectedRequestDisplay(null);
                 ExportButton.IsEnabled = false;
@@ -891,9 +1066,30 @@ namespace ProductCheckerV2
 
         private void ClearListings()
         {
+            SetListingsLoadingState(false);
             ListingsDataGrid.ItemsSource = null;
             ListingCountText.Text = "0 listings";
             UpdateListingProgress(null);
+        }
+
+        private void SetListingsLoadingState(bool isLoading)
+        {
+            if (_isListingsLoading == isLoading)
+            {
+                return;
+            }
+
+            _isListingsLoading = isLoading;
+
+            if (ListingsSkeletonOverlay != null)
+            {
+                ListingsSkeletonOverlay.Visibility = isLoading ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            if (ListingsDataGrid != null)
+            {
+                ListingsDataGrid.Visibility = isLoading ? Visibility.Hidden : Visibility.Visible;
+            }
         }
 
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
@@ -1562,6 +1758,263 @@ namespace ProductCheckerV2
             messageBox.ShowDialog();
         }
 
+        private static async Task<T> WithTimeoutAsync<T>(Func<CancellationToken, Task<T>> operation, int timeoutSeconds)
+        {
+            using var cts = new CancellationTokenSource();
+            var task = operation(cts.Token);
+            var completedTask = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(timeoutSeconds))).ConfigureAwait(true);
+
+            if (completedTask != task)
+            {
+                cts.Cancel();
+                throw new TimeoutException($"The operation timed out after {timeoutSeconds} seconds.");
+            }
+
+            return await task.ConfigureAwait(true);
+        }
+
+        private static string GetCacheFilePath()
+        {
+            var baseDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ProductCheckerV2",
+                "cache");
+
+            return Path.Combine(baseDir, "view-requests-cache.json");
+        }
+
+        private void LoadCacheFromDisk()
+        {
+            try
+            {
+                if (!File.Exists(_cacheFilePath))
+                {
+                    _cacheData = new ViewRequestsCacheData();
+                    return;
+                }
+
+                var json = File.ReadAllText(_cacheFilePath);
+                var data = JsonSerializer.Deserialize<ViewRequestsCacheData>(json);
+                _cacheData = data ?? new ViewRequestsCacheData();
+            }
+            catch
+            {
+                _cacheData = new ViewRequestsCacheData();
+            }
+        }
+
+        private void SaveCacheToDisk()
+        {
+            try
+            {
+                lock (_cacheLock)
+                {
+                    var dir = Path.GetDirectoryName(_cacheFilePath);
+                    if (!string.IsNullOrWhiteSpace(dir))
+                    {
+                        Directory.CreateDirectory(dir);
+                    }
+
+                    _cacheData.UpdatedAt = DateTime.UtcNow;
+                    var json = JsonSerializer.Serialize(_cacheData, new JsonSerializerOptions
+                    {
+                        WriteIndented = false
+                    });
+                    File.WriteAllText(_cacheFilePath, json);
+                }
+            }
+            catch
+            {
+                // Ignore cache write failures.
+            }
+        }
+
+        private void MergeRequestsIntoCache(IEnumerable<RequestViewModel> requests)
+        {
+            lock (_cacheLock)
+            {
+                var byId = _cacheData.Requests.ToDictionary(r => r.Id, r => r);
+
+                foreach (var vm in requests)
+                {
+                    byId[vm.Id] = new CachedRequest
+                    {
+                        Id = vm.Id,
+                        RequestInfoId = vm.RequestInfoId,
+                        User = vm.User ?? string.Empty,
+                        FileName = vm.FileName ?? string.Empty,
+                        Environment = vm.Environment ?? "Stage",
+                        Status = vm.Status.ToString(),
+                        CreatedAt = vm.CreatedAt,
+                        ListingsCount = vm.ListingsCount,
+                        Priority = vm.Priority
+                    };
+                }
+
+                _cacheData.Requests = byId.Values
+                    .OrderByDescending(r => r.Id)
+                    .Take(500)
+                    .ToList();
+            }
+        }
+
+        private void UpdateListingsCache(long requestId, List<ListingViewModel> listings)
+        {
+            lock (_cacheLock)
+            {
+                _cacheData.ListingsByRequestId[requestId] = listings.Select(l => new CachedListing
+                {
+                    ListingId = l.ListingId ?? string.Empty,
+                    CaseNumber = l.CaseNumber ?? string.Empty,
+                    Platform = l.Platform ?? string.Empty,
+                    Url = l.Url ?? string.Empty,
+                    UrlStatus = l.UrlStatus ?? string.Empty,
+                    CheckedDate = l.CheckedDate ?? string.Empty,
+                    Notes = l.Notes ?? string.Empty
+                }).ToList();
+            }
+        }
+
+        private bool TryLoadRequestsFromCache(bool preserveSelection)
+        {
+            List<CachedRequest> cached;
+            lock (_cacheLock)
+            {
+                cached = _cacheData.Requests.ToList();
+            }
+
+            if (cached.Count == 0)
+            {
+                return false;
+            }
+
+            var search = SearchTextBox?.Text?.Trim() ?? string.Empty;
+            var filtered = cached
+                .Where(r => CachedRequestMatchesSearch(r, search))
+                .OrderByDescending(r => r.Id)
+                .ToList();
+
+            _totalRequests = filtered.Count;
+            _pendingRequests = filtered.Count(r => string.Equals(r.Status, RequestStatus.PENDING.ToString(), StringComparison.OrdinalIgnoreCase));
+            _totalPages = Math.Max(1, (int)Math.Ceiling((double)Math.Max(1, _totalRequests) / PageSize));
+            _currentPage = Math.Max(1, Math.Min(_currentPage, _totalPages));
+
+            var page = filtered
+                .Skip((_currentPage - 1) * PageSize)
+                .Take(PageSize)
+                .Select(ToRequestViewModel)
+                .ToList();
+
+            _allRequests = page;
+            _requestsView = CollectionViewSource.GetDefaultView(_allRequests);
+            _requestsView.Filter = RequestFilter;
+            RequestsListBox.ItemsSource = _requestsView;
+            _requestsView.Refresh();
+
+            UpdateRequestCountText();
+            UpdatePaginationControls();
+            ApplySelectionAfterLoad(preserveSelection);
+
+            return true;
+        }
+
+        private bool TryLoadListingsFromCache(long requestId, out List<ListingViewModel> listings)
+        {
+            lock (_cacheLock)
+            {
+                if (_cacheData.ListingsByRequestId.TryGetValue(requestId, out var cached))
+                {
+                    listings = cached.Select(c => new ListingViewModel
+                    {
+                        ListingId = c.ListingId,
+                        CaseNumber = c.CaseNumber,
+                        Platform = c.Platform,
+                        Url = c.Url,
+                        UrlStatus = c.UrlStatus,
+                        CheckedDate = c.CheckedDate,
+                        Notes = c.Notes
+                    }).ToList();
+
+                    return true;
+                }
+            }
+
+            listings = new List<ListingViewModel>();
+            return false;
+        }
+
+        private static bool CachedRequestMatchesSearch(CachedRequest request, string searchText)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                return true;
+            }
+
+            var search = searchText.ToLowerInvariant();
+            return request.Id.ToString().Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                   request.RequestInfoId.ToString().Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                   (request.User ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                   (request.FileName ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                   (request.Environment ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                   (request.Status ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private RequestViewModel ToRequestViewModel(CachedRequest cached)
+        {
+            var status = Enum.TryParse<RequestStatus>(cached.Status, true, out var parsedStatus)
+                ? parsedStatus
+                : RequestStatus.PENDING;
+
+            return new RequestViewModel
+            {
+                Id = cached.Id,
+                RequestInfoId = cached.RequestInfoId,
+                User = cached.User ?? "Unknown",
+                FileName = cached.FileName ?? "Unknown",
+                Environment = NormalizeEnvironment(cached.Environment),
+                Status = status,
+                CreatedAt = cached.CreatedAt,
+                ListingsCount = cached.ListingsCount,
+                Priority = cached.Priority,
+                IsHighPriority = cached.Priority == 1,
+                MatchCount = 0,
+                HasListingMatch = false,
+                StatusBrush = GetStatusBrush(status),
+                EnvironmentBrush = GetEnvironmentBrush(cached.Environment)
+            };
+        }
+
+        private sealed class ViewRequestsCacheData
+        {
+            public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+            public List<CachedRequest> Requests { get; set; } = new();
+            public Dictionary<long, List<CachedListing>> ListingsByRequestId { get; set; } = new();
+        }
+
+        private sealed class CachedRequest
+        {
+            public long Id { get; set; }
+            public long RequestInfoId { get; set; }
+            public string User { get; set; } = string.Empty;
+            public string FileName { get; set; } = string.Empty;
+            public string Environment { get; set; } = "Stage";
+            public string Status { get; set; } = RequestStatus.PENDING.ToString();
+            public DateTime CreatedAt { get; set; }
+            public int ListingsCount { get; set; }
+            public int Priority { get; set; }
+        }
+
+        private sealed class CachedListing
+        {
+            public string ListingId { get; set; } = string.Empty;
+            public string CaseNumber { get; set; } = string.Empty;
+            public string Platform { get; set; } = string.Empty;
+            public string Url { get; set; } = string.Empty;
+            public string UrlStatus { get; set; } = string.Empty;
+            public string CheckedDate { get; set; } = string.Empty;
+            public string Notes { get; set; } = string.Empty;
+        }
+
         private void StopAutoRefresh()
         {
             // Stop the auto-refresh timer when window is closing
@@ -1574,5 +2027,6 @@ namespace ProductCheckerV2
         }
     }
 }
+
 
 

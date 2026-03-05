@@ -77,8 +77,26 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Application initialization failed:\n\n{ex.Message}",
+                ModalDialogService.Show($"Application initialization failed:\n\n{ex.Message}",
                     "Initialization Error", MessageBoxButton.OK, MessageBoxImage.Error);
+
+                // Keep app usable even when startup dependencies fail (e.g. DB/credentials).
+                TryInitializeLimitedModeUi();
+            }
+        }
+
+        private void TryInitializeLimitedModeUi()
+        {
+            try
+            {
+                UpdateDataGridVisibility(false);
+                UpdateSelectionSummary();
+                UpdateStatusBar("Ready - Limited mode (data source unavailable)");
+                ShowUploadPage();
+            }
+            catch
+            {
+                // Do not rethrow from startup recovery path.
             }
         }
 
@@ -154,7 +172,7 @@ namespace ProductCheckerV2
                 SetEnvironmentComboBoxSelection(previousEnvironment);
                 UpdateEnvironmentIndicator();
 
-                MessageBox.Show($"Failed to switch environment to '{selectedEnvironment}'.\n\n{ex.Message}",
+                ModalDialogService.Show($"Failed to switch environment to '{selectedEnvironment}'.\n\n{ex.Message}",
                     "Environment Switch Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -221,7 +239,7 @@ namespace ProductCheckerV2
 
             if (string.IsNullOrWhiteSpace(selectedEnvironment))
             {
-                MessageBox.Show("Please select an environment first.",
+                ModalDialogService.Show("Please select an environment first.",
                     "Environment Required", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
@@ -231,7 +249,7 @@ namespace ProductCheckerV2
 
             if (!string.Equals(enteredPassword, expectedPassword, StringComparison.Ordinal))
             {
-                MessageBox.Show("Invalid password. Environment was not changed.",
+                ModalDialogService.Show("Invalid password. Environment was not changed.",
                     "Access Denied", MessageBoxButton.OK, MessageBoxImage.Warning);
 
                 if (EnvironmentPasswordBox != null)
@@ -271,7 +289,7 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Database initialization failed:\n\n{ex.Message}",
+                ModalDialogService.Show(BuildDatabaseErrorMessage("Database initialization failed", ex),
                     "Database Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -331,9 +349,32 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading filters:\n\n{ex.Message}",
+                ModalDialogService.Show(BuildDatabaseErrorMessage("Error loading filters", ex),
                     "Filter Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
+        }
+
+        private static string BuildDatabaseErrorMessage(string prefix, Exception ex)
+        {
+            if (IsDatabaseConnectionIssue(ex))
+            {
+                return $"{prefix}.\n\nCannot connect to database or credentials are invalid.\nPlease check DB host/user/password and try again.\n\n{ex.Message}";
+            }
+
+            return $"{prefix}:\n\n{ex.Message}";
+        }
+
+        private static bool IsDatabaseConnectionIssue(Exception ex)
+        {
+            var message = $"{ex.Message} {ex.InnerException?.Message}".ToLowerInvariant();
+
+            return message.Contains("unable to connect") ||
+                   message.Contains("can't connect") ||
+                   message.Contains("cannot connect") ||
+                   message.Contains("access denied") ||
+                   message.Contains("authentication") ||
+                   message.Contains("password") ||
+                   message.Contains("connection");
         }
 
         private static bool FilterOptionMatches(object item, string searchText)
@@ -462,9 +503,9 @@ namespace ProductCheckerV2
             }
 
             CloseFilterDropdowns();
-            CampaignSearchTextBox.Text = "🖱️ Double click to search campaign";
-            PlatformSearchTextBox.Text = "🖱️ Double click to search platform";
-            QflagSearchTextBox.Text = "🖱️ Double click to search status";
+            CampaignSearchTextBox.Text = "ðŸ–±ï¸ Double click to search campaign";
+            PlatformSearchTextBox.Text = "ðŸ–±ï¸ Double click to search platform";
+            QflagSearchTextBox.Text = "ðŸ–±ï¸ Double click to search status";
         }
 
         private bool IsAnyFilterDropdownOpen()
@@ -609,7 +650,7 @@ namespace ProductCheckerV2
                 selectedPlatformIds.Count == 0 &&
                 selectedQflagIds.Count == 0)
             {
-                MessageBox.Show("Please select at least one campaign, case, platform, or status.",
+                ModalDialogService.Show("Please select at least one campaign, case, platform, or status.",
                     "Missing Filters", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -634,13 +675,13 @@ namespace ProductCheckerV2
                     : "No listings found for the selected filters");
                 if (_uploadedData.Count == 0)
                 {
-                    MessageBox.Show("No listings found for the selected filters.",
+                    ModalDialogService.Show("No listings found for the selected filters.",
                         "No Results", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading preview:\n\n{ex.Message}",
+                ModalDialogService.Show($"Error loading preview:\n\n{ex.Message}",
                     "Preview Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
@@ -756,9 +797,9 @@ namespace ProductCheckerV2
             CampaignDropdownPopup.IsOpen = false;
             PlatformDropdownPopup.IsOpen = false;
             QflagDropdownPopup.IsOpen = false;
-            CampaignSearchTextBox.Text = "🖱️ Double click to search campaign";
-            PlatformSearchTextBox.Text = "🖱️ Double click to search platform";
-            QflagSearchTextBox.Text = "🖱️ Double click to search status";
+            CampaignSearchTextBox.Text = "ðŸ–±ï¸ Double click to search campaign";
+            PlatformSearchTextBox.Text = "ðŸ–±ï¸ Double click to search platform";
+            QflagSearchTextBox.Text = "ðŸ–±ï¸ Double click to search status";
 
             RefreshFilterViews();
             UpdateSelectedFiltersList();
@@ -895,7 +936,7 @@ namespace ProductCheckerV2
 
                 if (fileInfo.Length > maxSize)
                 {
-                    MessageBox.Show($"File size exceeds the maximum allowed size of 10MB.",
+                    ModalDialogService.Show($"File size exceeds the maximum allowed size of 10MB.",
                         "File Too Large", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -903,7 +944,7 @@ namespace ProductCheckerV2
                 var validExtensions = new[] { ".xlsx", ".xls", ".xlsm" };
                 if (!validExtensions.Contains(fileInfo.Extension.ToLower()))
                 {
-                    MessageBox.Show("Please select a valid Excel file (.xlsx, .xls, .xlsm).",
+                    ModalDialogService.Show("Please select a valid Excel file (.xlsx, .xls, .xlsm).",
                         "Invalid File Type", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -912,7 +953,7 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading file:\n\n{ex.Message}",
+                ModalDialogService.Show($"Error loading file:\n\n{ex.Message}",
                     "File Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -935,7 +976,7 @@ namespace ProductCheckerV2
                 if (_uploadedData.Count == 0)
                 {
                     HideValidationOverlay();
-                    MessageBox.Show("No valid data found in the Excel file.\n\n" +
+                    ModalDialogService.Show("No valid data found in the Excel file.\n\n" +
                                   "Please ensure the file contains columns:\n" +
                                   "A: Listing ID, B: Case Number, C: URL",
                         "No Data", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -949,7 +990,7 @@ namespace ProductCheckerV2
                 if (validationErrors.Count > 0)
                 {
                     HideValidationOverlay();
-                    MessageBox.Show("Validation failed:\n\n" + string.Join("\n", validationErrors),
+                    ModalDialogService.Show("Validation failed:\n\n" + string.Join("\n", validationErrors),
                         "Validation Errors", MessageBoxButton.OK, MessageBoxImage.Warning);
 
                     ClearAllData();
@@ -989,7 +1030,7 @@ namespace ProductCheckerV2
             catch (Exception ex)
             {
                 HideValidationOverlay();
-                MessageBox.Show($"Error loading Excel file:\n\n{ex.Message}",
+                ModalDialogService.Show($"Error loading Excel file:\n\n{ex.Message}",
                     "File Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 ClearAllData();
             }
@@ -1326,7 +1367,7 @@ namespace ProductCheckerV2
         {
             if (_uploadedData.Count == 0)
             {
-                MessageBox.Show("No data to process. Please preview listings first.",
+                ModalDialogService.Show("No data to process. Please preview listings first.",
                               "No Data", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -1694,7 +1735,7 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error opening requests view: {ex.Message}",
+                ModalDialogService.Show($"Error opening requests view: {ex.Message}",
                     "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -1739,6 +1780,7 @@ namespace ProductCheckerV2
         }
     }
 }
+
 
 
 

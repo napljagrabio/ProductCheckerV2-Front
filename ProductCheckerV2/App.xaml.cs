@@ -1,4 +1,5 @@
-﻿using System.Windows;
+using System.Windows;
+using ProductCheckerV2.Common;
 
 namespace ProductCheckerV2
 {
@@ -14,9 +15,12 @@ namespace ProductCheckerV2
 
         private void App_DispatcherUnhandledException(object sender, System.Windows.Threading.DispatcherUnhandledExceptionEventArgs e)
         {
-            MessageBox.Show($"An unexpected error occurred:\n\n{e.Exception.Message}",
-                          "Application Error",
-                          MessageBoxButton.OK, MessageBoxImage.Error);
+            ModalDialogService.Show(
+                $"An unexpected error occurred:\n\n{e.Exception.Message}",
+                "Application Error",
+                ModalDialogType.Error,
+                Current?.MainWindow);
+
             e.Handled = true;
         }
     }
