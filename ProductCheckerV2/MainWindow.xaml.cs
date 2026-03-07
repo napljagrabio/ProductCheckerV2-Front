@@ -71,12 +71,14 @@ namespace ProductCheckerV2
                 SetInputMode(FilterModeRadio?.IsChecked == true);
                 UpdateSelectionSummary();
                 UpdateStatusBar("Ready");
+                NotifyConnectionRestored();
                 UpdateStatsDisplay();
                 UpdateDataGridVisibility(false);
                 ShowUploadPage();
             }
             catch (Exception ex)
             {
+                NotifyConnectionLostIfNeeded(ex);
                 ModalDialogService.Show($"Application initialization failed:\n\n{ex.Message}",
                     "Initialization Error", MessageBoxButton.OK, MessageBoxImage.Error);
 
@@ -165,9 +167,11 @@ namespace ProductCheckerV2
 
                 UpdateStatusBar($"Environment: {selectedEnvironment}");
                 UpdateEnvironmentIndicator();
+                NotifyConnectionRestored();
             }
             catch (Exception ex)
             {
+                NotifyConnectionLostIfNeeded(ex);
                 ConfigurationManager.SetEnvironment(previousEnvironment);
                 SetEnvironmentComboBoxSelection(previousEnvironment);
                 UpdateEnvironmentIndicator();
@@ -285,6 +289,7 @@ namespace ProductCheckerV2
                 if (context.Database.CanConnect())
                 {
                     Console.WriteLine("Database connected successfully.");
+                    NotifyConnectionRestored();
                 }
             }
             catch (Exception ex)
@@ -346,11 +351,15 @@ namespace ProductCheckerV2
                 _qflagsView = CollectionViewSource.GetDefaultView(_qflagOptions);
                 _qflagsView.Filter = item => FilterOptionMatches(item, QflagSearchTextBox.Text);
                 ConfigureFilterView(_qflagsView);
+                NotifyConnectionRestored();
             }
             catch (Exception ex)
             {
-                ModalDialogService.Show(BuildDatabaseErrorMessage("Error loading filters", ex),
-                    "Filter Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                NotifyConnectionLostIfNeeded(ex);
+                //NOTE: Nothing to do
+
+                //ModalDialogService.Show(BuildDatabaseErrorMessage("Error loading filters", ex),
+                //    "Filter Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -503,9 +512,9 @@ namespace ProductCheckerV2
             }
 
             CloseFilterDropdowns();
-            CampaignSearchTextBox.Text = "ðŸ–±ï¸ Double click to search campaign";
-            PlatformSearchTextBox.Text = "ðŸ–±ï¸ Double click to search platform";
-            QflagSearchTextBox.Text = "ðŸ–±ï¸ Double click to search status";
+            CampaignSearchTextBox.Text = "🖱️ Double click to search campaign";
+            PlatformSearchTextBox.Text = "🖱️ Double click to search platform";
+            QflagSearchTextBox.Text = "🖱️ Double click to search status";
         }
 
         private bool IsAnyFilterDropdownOpen()
@@ -664,6 +673,7 @@ namespace ProductCheckerV2
                 var listings = await Task.Run(() =>
                     QueryListings(selectedCampaignIds, selectedPlatformIds, selectedQflagIds));
 
+                NotifyConnectionRestored();
                 _uploadedData = listings;
                 DataGridPreview.ItemsSource = _uploadedData;
                 UpdateDataGridVisibility(_uploadedData.Count > 0);
@@ -681,6 +691,7 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
+                NotifyConnectionLostIfNeeded(ex);
                 ModalDialogService.Show($"Error loading preview:\n\n{ex.Message}",
                     "Preview Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
@@ -797,9 +808,9 @@ namespace ProductCheckerV2
             CampaignDropdownPopup.IsOpen = false;
             PlatformDropdownPopup.IsOpen = false;
             QflagDropdownPopup.IsOpen = false;
-            CampaignSearchTextBox.Text = "ðŸ–±ï¸ Double click to search campaign";
-            PlatformSearchTextBox.Text = "ðŸ–±ï¸ Double click to search platform";
-            QflagSearchTextBox.Text = "ðŸ–±ï¸ Double click to search status";
+            CampaignSearchTextBox.Text = "🖱️ Double click to search campaign";
+            PlatformSearchTextBox.Text = "🖱️ Double click to search platform";
+            QflagSearchTextBox.Text = "🖱️ Double click to search status";
 
             RefreshFilterViews();
             UpdateSelectedFiltersList();
@@ -1147,6 +1158,7 @@ namespace ProductCheckerV2
                     var response = await ArtemisGlobalClient.Instance.ValidateListingsApi
                         .Execute(ids)
                         .ConfigureAwait(false);
+                    NotifyConnectionRestored();
                     var responseBody = await response.Content.ReadAsStringAsync()
                         .ConfigureAwait(false);
 
@@ -1172,12 +1184,14 @@ namespace ProductCheckerV2
                 }
                 catch (HttpRequestException ex)
                 {
-                    errors.Add($"API request failed: {ex.Message}");
+                    NotifyConnectionLostIfNeeded(ex);
+                    errors.Add($"Validating Listings Error, Please contact system admin.");
                     return errors;
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"An error occurred: {ex.Message}");
+                    NotifyConnectionLostIfNeeded(ex);
+                    errors.Add($"Validating Listings Error, Please contact system admin. Error Messsage: {ex.Message}");
                     return errors;
                 }
             }
@@ -1524,6 +1538,7 @@ namespace ProductCheckerV2
                 }
 
                 using var context = new ProductCheckerDbContext();
+                NotifyConnectionRestored();
 
                 var requestInfo = new RequestInfo
                 {
@@ -1601,6 +1616,7 @@ namespace ProductCheckerV2
             }
             catch (Exception ex)
             {
+                NotifyConnectionLostIfNeeded(ex);
                 result.Success = false;
                 result.ErrorMessage = $"Error: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}";
             }
@@ -1684,6 +1700,19 @@ namespace ProductCheckerV2
         {
             var environment = ConfigurationManager.GetEnvironment();
             this.Title = $"{_applicationName} - {message} ({environment})";
+        }
+
+        private void NotifyConnectionLostIfNeeded(Exception ex)
+        {
+            if (ex is HttpRequestException || IsDatabaseConnectionIssue(ex) || ex.Message.Contains("Connect Timeout"))
+            {
+                ModalDialogService.ShowConnectionLostBanner(this);
+            }
+        }
+
+        private void NotifyConnectionRestored()
+        {
+            ModalDialogService.ShowConnectionRestoredBanner(this);
         }
 
         private void ShowValidationOverlay(string title, string subText)

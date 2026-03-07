@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -15,6 +16,10 @@ namespace ProductCheckerV2.Common
 
     public static class ModalDialogService
     {
+        private static Window? _bannerWindow;
+        private static DispatcherTimer? _bannerTimer;
+        private static bool _isConnectionLostBannerVisible;
+
         public static void Show(string message, string title, MessageBoxButton buttons, MessageBoxImage image)
         {
             _ = buttons;
@@ -163,6 +168,184 @@ namespace ProductCheckerV2.Common
                         new Action(() => { }));
                 }
             }
+        }
+
+        public static void ShowBanner(string message, ModalDialogType type = ModalDialogType.Info, int autoHideMilliseconds = 0, Window? owner = null)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null)
+            {
+                return;
+            }
+
+            if (!dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(() => ShowBanner(message, type, autoHideMilliseconds, owner));
+                return;
+            }
+
+            var resolvedOwner = owner ?? Application.Current?.MainWindow;
+            var canUseOwner = resolvedOwner != null && resolvedOwner.IsLoaded;
+            var palette = GetPalette(type);
+
+            CloseBanner();
+
+            var banner = new Window
+            {
+                Width = 560,
+                Height = 60,
+                ResizeMode = ResizeMode.NoResize,
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                Background = Brushes.Transparent,
+                ShowInTaskbar = false,
+                Topmost = true,
+                ShowActivated = false,
+                WindowStartupLocation = WindowStartupLocation.Manual
+            };
+
+            if (canUseOwner)
+            {
+                banner.Owner = resolvedOwner;
+            }
+
+            var root = new Border
+            {
+                Background = palette.HeaderBackground,
+                BorderBrush = palette.ButtonBackground,
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(14, 10, 14, 10),
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    BlurRadius = 16,
+                    ShadowDepth = 0,
+                    Opacity = 0.24,
+                    Color = Color.FromRgb(15, 23, 42)
+                }
+            };
+
+            var text = new TextBlock
+            {
+                Text = message,
+                FontSize = 13,
+                FontWeight = FontWeights.SemiBold,
+                Foreground = palette.HeaderForeground,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+
+            root.Child = text;
+            banner.Content = root;
+
+            banner.Loaded += (_, _) =>
+            {
+                PositionBanner(banner, resolvedOwner);
+            };
+
+            _bannerWindow = banner;
+            banner.Show();
+
+            if (autoHideMilliseconds > 0)
+            {
+                _bannerTimer = new DispatcherTimer
+                {
+                    Interval = TimeSpan.FromMilliseconds(autoHideMilliseconds)
+                };
+                _bannerTimer.Tick += (_, _) =>
+                {
+                    _bannerTimer?.Stop();
+                    _bannerTimer = null;
+                    CloseBanner();
+                };
+                _bannerTimer.Start();
+            }
+        }
+
+        public static void ShowConnectionLostBanner(Window? owner = null)
+        {
+            if (_isConnectionLostBannerVisible)
+            {
+                return;
+            }
+
+            _isConnectionLostBannerVisible = true;
+            ShowBanner(
+                "Connection lost. Showing saved data until internet is restored.",
+                ModalDialogType.Warning,
+                autoHideMilliseconds: 0,
+                owner: owner);
+        }
+
+        public static void ShowConnectionRestoredBanner(Window? owner = null)
+        {
+            if (!_isConnectionLostBannerVisible)
+            {
+                return;
+            }
+
+            _isConnectionLostBannerVisible = false;
+            ShowBanner(
+                "Connection restored. Live updates resumed.",
+                ModalDialogType.Success,
+                autoHideMilliseconds: 3000,
+                owner: owner);
+        }
+
+        public static void CloseBanner()
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null)
+            {
+                return;
+            }
+
+            if (!dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(CloseBanner);
+                return;
+            }
+
+            _bannerTimer?.Stop();
+            _bannerTimer = null;
+
+            if (_bannerWindow == null)
+            {
+                return;
+            }
+
+            try
+            {
+                _bannerWindow.Close();
+            }
+            catch
+            {
+                // Ignore close errors.
+            }
+            finally
+            {
+                _bannerWindow = null;
+            }
+        }
+
+        private static void PositionBanner(Window banner, Window? owner)
+        {
+            if (banner == null)
+            {
+                return;
+            }
+
+            const double topMargin = 24;
+            if (owner != null && owner.IsVisible)
+            {
+                banner.Left = owner.Left + Math.Max(12, (owner.ActualWidth - banner.Width) / 2);
+                banner.Top = owner.Top + topMargin;
+                return;
+            }
+
+            var area = SystemParameters.WorkArea;
+            banner.Left = area.Left + Math.Max(12, (area.Width - banner.Width) / 2);
+            banner.Top = area.Top + topMargin;
         }
 
         private static ModalDialogType MapType(MessageBoxImage image)

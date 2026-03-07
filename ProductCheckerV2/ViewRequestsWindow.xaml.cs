@@ -47,9 +47,12 @@ namespace ProductCheckerV2
         private readonly DispatcherTimer _searchDebounceTimer;
         private const int SearchDebounceMilliseconds = 300;
         private const int PageTransitionMilliseconds = 120;
+        private const int BackgroundRefreshIntervalSeconds = 5;
         private const int DataQueryTimeoutSeconds = 12;
         private readonly string _cacheFilePath;
         private readonly object _cacheLock = new();
+        private readonly SemaphoreSlim _requestsRefreshLock = new(1, 1);
+        private readonly SemaphoreSlim _listingsRefreshLock = new(1, 1);
         private ViewRequestsCacheData _cacheData = new();
         private bool _isRequestsLoading = false;
         private bool _isListingsLoading = false;
@@ -95,7 +98,7 @@ namespace ProductCheckerV2
         private void InitializeAutoRefresh()
         {
             _autoRefreshTimer = new DispatcherTimer();
-            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(ConfigurationManager.AutoRefreshTime);
+            _autoRefreshTimer.Interval = TimeSpan.FromSeconds(BackgroundRefreshIntervalSeconds);
             _autoRefreshTimer.Tick += AutoRefreshTimer_Tick;
             _autoRefreshTimer.Start();
 
@@ -127,7 +130,22 @@ namespace ProductCheckerV2
         {
             try
             {
-                await LoadRequestsPageAsync(preserveSelection: true, showErrors: false, showSkeleton: false);
+                var requestsUpdated = await RefreshRequestsCacheAsync(showErrors: false);
+                if (requestsUpdated)
+                {
+                    TryLoadRequestsFromCache(preserveSelection: true);
+                }
+
+                if (_selectedRequest != null)
+                {
+                    var selectedRequestId = _selectedRequest.Id;
+                    var listingsUpdated = await RefreshListingsCacheAsync(selectedRequestId, showErrors: false);
+                    if (listingsUpdated && _selectedRequest?.Id == selectedRequestId)
+                    {
+                        TryLoadListingsIntoUiFromCache(selectedRequestId, showCachedLabel: false);
+                    }
+                }
+
                 _lastRefreshTime = DateTime.Now;
             }
             catch (Exception ex)
@@ -143,6 +161,8 @@ namespace ProductCheckerV2
 
         private async Task LoadRequestsPageAsync(bool preserveSelection, bool showErrors, bool showSkeleton = true)
         {
+            bool loadedFromCache = false;
+
             if (showSkeleton)
             {
                 SetRequestsLoadingState(true);
@@ -150,188 +170,32 @@ namespace ProductCheckerV2
 
             try
             {
-                using var context = new ProductCheckerDbContext();
+                loadedFromCache = TryLoadRequestsFromCache(preserveSelection);
+                var refreshSucceeded = await RefreshRequestsCacheAsync(showErrors);
 
-                _currentSearchText = SearchTextBox?.Text?.Trim() ?? string.Empty;
-                bool hasSearch = !string.IsNullOrWhiteSpace(_currentSearchText);
-
-                var baseQuery = context.Requests
-                    .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null);
-
-                Dictionary<long, int> listingMatchCountsByRequestInfoId = new Dictionary<long, int>();
-
-                if (hasSearch)
+                if (refreshSucceeded)
                 {
-                    var searchLower = _currentSearchText.ToLower();
-                    long? searchListingId = long.TryParse(_currentSearchText, out var parsedListingId)
-                        ? parsedListingId
-                        : (long?)null;
-
-                    listingMatchCountsByRequestInfoId = await context.ProductListings
-                        .Where(l => l.RequestInfoId > 0 && (
-                            (searchListingId.HasValue && l.ListingId == searchListingId.Value) ||
-                            (l.CaseNumber ?? string.Empty).ToLower().Contains(searchLower) ||
-                            (l.Platform ?? string.Empty).ToLower().Contains(searchLower) ||
-                            (l.Url ?? string.Empty).ToLower().Contains(searchLower) ||
-                            (l.UrlStatus ?? string.Empty).ToLower().Contains(searchLower) ||
-                            (l.ErrorDetail ?? string.Empty).ToLower().Contains(searchLower) ||
-                            (l.Note ?? string.Empty).ToLower().Contains(searchLower)))
-                        .GroupBy(l => l.RequestInfoId)
-                        .Select(g => new { RequestInfoId = g.Key, Count = g.Count() })
-                        .ToDictionaryAsync(x => x.RequestInfoId, x => x.Count);
-
-                    var matchingRequestInfoIds = listingMatchCountsByRequestInfoId.Keys.ToList();
-
-                    long? searchId = long.TryParse(_currentSearchText, out var parsedId) ? parsedId : (long?)null;
-                    RequestStatus? statusSearch = Enum.TryParse<RequestStatus>(_currentSearchText, true, out var parsedStatus)
-                        ? parsedStatus
-                        : (RequestStatus?)null;
-
-                    baseQuery = baseQuery.Where(r =>
-                        (searchId.HasValue && (r.Id == searchId.Value || r.RequestInfoId == searchId.Value)) ||
-                        (statusSearch.HasValue && r.Status == statusSearch.Value) ||
-                        (r.RequestInfo != null && (
-                            (r.RequestInfo.User ?? string.Empty).ToLower().Contains(searchLower) ||
-                            (r.RequestInfo.FileName ?? string.Empty).ToLower().Contains(searchLower) ||
-                            (r.RequestInfo.Environment ?? string.Empty).ToLower().Contains(searchLower))) ||
-                        (matchingRequestInfoIds.Count > 0 && matchingRequestInfoIds.Contains(r.RequestInfoId)));
+                    TryLoadRequestsFromCache(preserveSelection);
                 }
-
-                _totalRequests = await baseQuery.CountAsync();
-                if (!hasSearch)
+                else if (loadedFromCache && !_hasShownCacheFallbackModal)
                 {
-                    _pendingRequests = await baseQuery.CountAsync(r => r.Status == RequestStatus.PENDING);
+                    _hasShownCacheFallbackModal = true;
+                    ModalDialogService.ShowConnectionLostBanner(Window.GetWindow(this));
                 }
-                else
+                else if (!loadedFromCache)
                 {
+                    _totalRequests = 0;
                     _pendingRequests = 0;
-                }
-
-                _totalPages = Math.Max(1, (int)Math.Ceiling((double)_totalRequests / PageSize));
-                if (_currentPage > _totalPages)
-                {
-                    _currentPage = _totalPages;
-                }
-                if (_currentPage < 1)
-                {
+                    _totalPages = 1;
                     _currentPage = 1;
-                }
-
-                var requestsPage = await baseQuery
-                    .OrderByDescending(r => r.Id)
-                    .Skip((_currentPage - 1) * PageSize)
-                    .Take(PageSize)
-                    .Select(r => new
-                    {
-                        r.Id,
-                        r.Priority,
-                        r.Status,
-                        r.CreatedAt,
-                        r.RequestInfoId,
-                        RequestInfo = r.RequestInfo != null ? new
-                        {
-                            r.RequestInfo.User,
-                            r.RequestInfo.FileName,
-                            r.RequestInfo.Environment
-                        } : null
-                    })
-                    .ToListAsync();
-
-                var requestInfoIds = requestsPage
-                    .Select(r => r.RequestInfoId)
-                    .Where(id => id > 0)
-                    .Distinct()
-                    .ToList();
-
-                Dictionary<long, int> listingsCountByRequestInfoId = new Dictionary<long, int>();
-                if (requestInfoIds.Count > 0)
-                {
-                    listingsCountByRequestInfoId = await context.ProductListings
-                        .Where(l => requestInfoIds.Contains(l.RequestInfoId))
-                        .GroupBy(l => l.RequestInfoId)
-                        .Select(g => new { RequestInfoId = g.Key, Count = g.Count() })
-                        .ToDictionaryAsync(x => x.RequestInfoId, x => x.Count);
-                }
-
-                _allRequests.Clear();
-                foreach (var r in requestsPage)
-                {
-                    listingsCountByRequestInfoId.TryGetValue(r.RequestInfoId, out var listingsCount);
-                    listingMatchCountsByRequestInfoId.TryGetValue(r.RequestInfoId, out var matchCount);
-
-                    var requestVM = new RequestViewModel
-                    {
-                        Id = r.Id,
-                        RequestInfoId = r.RequestInfoId,
-                        User = r.RequestInfo?.User ?? "Unknown",
-                        FileName = r.RequestInfo?.FileName ?? "Unknown",
-                        Environment = NormalizeEnvironment(r.RequestInfo?.Environment),
-                        Status = r.Status,
-                        CreatedAt = r.CreatedAt,
-                        ListingsCount = listingsCount,
-                        Priority = r.Priority,
-                        IsHighPriority = r.Priority == 1,
-                        EnvironmentBrush = GetEnvironmentBrush(r.RequestInfo?.Environment),
-                        MatchCount = matchCount,
-                        HasListingMatch = matchCount > 0
-                    };
-
-                    requestVM.StatusBrush = GetStatusBrush(requestVM.Status);
-                    _allRequests.Add(requestVM);
-                }
-
-                _allRequests = _allRequests.OrderByDescending(r => r.Id).ToList();
-
-                _requestsView = CollectionViewSource.GetDefaultView(_allRequests);
-                _requestsView.Filter = RequestFilter;
-                RequestsListBox.ItemsSource = _requestsView;
-                _requestsView.Refresh();
-
-                UpdateRequestCountText();
-                UpdatePaginationControls();
-                ApplySelectionAfterLoad(preserveSelection);
-
-                _lastRefreshTime = DateTime.Now;
-                _hasShownConnectionIssueModal = false;
-                MergeRequestsIntoCache(_allRequests);
-                SaveCacheToDisk();
-            }
-            catch (Exception ex)
-            {
-                if (TryLoadRequestsFromCache(preserveSelection))
-                {
-                    if (!_hasShownCacheFallbackModal)
-                    {
-                        _hasShownCacheFallbackModal = true;
-                        var ownerWindow = Window.GetWindow(this);
-                        ModalDialogService.Show(
-                            "Live data is unavailable. Showing cached requests data.",
-                            "Using Cached Data",
-                            ModalDialogType.Warning,
-                            ownerWindow);
-                    }
-                    return;
-                }
-
-                if (showErrors)
-                {
-                    ModalDialogService.Show($"Error loading requests: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
-                        "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-                else
-                {
-                    if (!_hasShownConnectionIssueModal && IsDatabaseConnectionIssue(ex))
-                    {
-                        _hasShownConnectionIssueModal = true;
-                        var ownerWindow = Window.GetWindow(this);
-                        ModalDialogService.Show(
-                            "Cannot connect to the database. Please check your DB server and credentials, then try again.\n\n" + ex.Message,
-                            "Database Connection Error",
-                            ModalDialogType.Error,
-                            ownerWindow);
-                    }
-
-                    Console.WriteLine($"Error loading requests: {ex.Message}");
+                    _allRequests = new List<RequestViewModel>();
+                    _requestsView = CollectionViewSource.GetDefaultView(_allRequests);
+                    _requestsView.Filter = RequestFilter;
+                    RequestsListBox.ItemsSource = _requestsView;
+                    _requestsView.Refresh();
+                    UpdateRequestCountText();
+                    UpdatePaginationControls();
+                    ApplySelectionAfterLoad(preserveSelection);
                 }
             }
             finally
@@ -341,6 +205,123 @@ namespace ProductCheckerV2
                     SetRequestsLoadingState(false);
                 }
             }
+        }
+
+        private async Task<bool> RefreshRequestsCacheAsync(bool showErrors)
+        {
+            await _requestsRefreshLock.WaitAsync();
+
+            try
+            {
+                var snapshot = await FetchRequestsSnapshotAsync();
+
+                lock (_cacheLock)
+                {
+                    _cacheData.Requests = snapshot
+                        .OrderByDescending(r => r.Id)
+                        .Take(500)
+                        .ToList();
+                }
+
+                SaveCacheToDisk();
+                _hasShownConnectionIssueModal = false;
+                _hasShownCacheFallbackModal = false;
+                MarkConnectionRestored();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (IsDatabaseConnectionIssue(ex))
+                {
+                    MarkConnectionLost();
+                }
+
+                if (showErrors)
+                {
+                    //NOTE: Nothing to do
+
+                    //ModalDialogService.Show(
+                    //    $"Error loading requests: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
+                    //    "Error",
+                    //    MessageBoxButton.OK,
+                    //    MessageBoxImage.Error);
+                }
+                else
+                {
+                    if (!_hasShownConnectionIssueModal && IsDatabaseConnectionIssue(ex))
+                    {
+                        _hasShownConnectionIssueModal = true;
+                    }
+
+                    Console.WriteLine($"Error loading requests: {ex.Message}");
+                }
+
+                return false;
+            }
+            finally
+            {
+                _requestsRefreshLock.Release();
+            }
+        }
+
+        private async Task<List<CachedRequest>> FetchRequestsSnapshotAsync()
+        {
+            return await WithTimeoutAsync(
+                _ => Task.Run(() =>
+                {
+                    using var context = new ProductCheckerDbContext();
+
+                    var requests = context.Requests
+                        .AsNoTracking()
+                        .Where(r => r.RequestInfoId > 0 && r.DeletedAt == null)
+                        .OrderByDescending(r => r.Id)
+                        .Take(500)
+                        .Select(r => new
+                        {
+                            r.Id,
+                            r.RequestInfoId,
+                            r.Priority,
+                            r.Status,
+                            r.CreatedAt,
+                            User = r.RequestInfo != null ? r.RequestInfo.User : null,
+                            FileName = r.RequestInfo != null ? r.RequestInfo.FileName : null,
+                            Environment = r.RequestInfo != null ? r.RequestInfo.Environment : null
+                        })
+                        .ToList();
+
+                    var requestInfoIds = requests
+                        .Select(r => r.RequestInfoId)
+                        .Where(id => id > 0)
+                        .Distinct()
+                        .ToList();
+
+                    var listingCountsByRequestInfoId = requestInfoIds.Count == 0
+                        ? new Dictionary<long, int>()
+                        : context.ProductListings
+                            .AsNoTracking()
+                            .Where(l => requestInfoIds.Contains(l.RequestInfoId))
+                            .GroupBy(l => l.RequestInfoId)
+                            .Select(g => new { RequestInfoId = g.Key, Count = g.Count() })
+                            .ToDictionary(x => x.RequestInfoId, x => x.Count);
+
+                    return requests.Select(r =>
+                    {
+                        listingCountsByRequestInfoId.TryGetValue(r.RequestInfoId, out var listingsCount);
+                        return new CachedRequest
+                        {
+                            Id = r.Id,
+                            RequestInfoId = r.RequestInfoId,
+                            User = r.User ?? "Unknown",
+                            FileName = r.FileName ?? "Unknown",
+                            Environment = NormalizeEnvironment(r.Environment),
+                            Status = r.Status.ToString(),
+                            CreatedAt = r.CreatedAt,
+                            ListingsCount = listingsCount,
+                            Priority = r.Priority
+                        };
+                    }).ToList();
+                }),
+                DataQueryTimeoutSeconds);
         }
 
         private static bool IsDatabaseConnectionIssue(Exception ex)
@@ -354,6 +335,16 @@ namespace ProductCheckerV2
                    message.Contains("authentication") ||
                    message.Contains("password") ||
                    message.Contains("connection");
+        }
+
+        private void MarkConnectionLost()
+        {
+            ModalDialogService.ShowConnectionLostBanner(Window.GetWindow(this));
+        }
+
+        private void MarkConnectionRestored()
+        {
+            ModalDialogService.ShowConnectionRestoredBanner(Window.GetWindow(this));
         }
 
         private void ApplySelectionAfterLoad(bool preserveSelection)
@@ -539,6 +530,8 @@ namespace ProductCheckerV2
 
         private async Task LoadListingsForRequestAsync(long requestId, bool showSkeleton = true)
         {
+            bool loadedFromCache = false;
+
             if (showSkeleton)
             {
                 SetListingsLoadingState(true);
@@ -546,28 +539,103 @@ namespace ProductCheckerV2
 
             try
             {
-                using var context = new ProductCheckerDbContext();
+                loadedFromCache = TryLoadListingsIntoUiFromCache(requestId, showCachedLabel: true);
+                var refreshed = await RefreshListingsCacheAsync(requestId, showErrors: !_isRefreshing);
 
-                var request = await WithTimeoutAsync(
-                    token => context.Requests
-                        .Where(r => r.Id == requestId)
-                        .Select(r => new { r.RequestInfoId })
-                        .FirstOrDefaultAsync(token),
-                    DataQueryTimeoutSeconds);
-
-                if (request == null || request.RequestInfoId == 0)
+                if (refreshed)
+                {
+                    TryLoadListingsIntoUiFromCache(requestId, showCachedLabel: false);
+                }
+                else if (!loadedFromCache)
                 {
                     ListingsDataGrid.ItemsSource = null;
-                    ListingCountText.Text = "0 listings";
+                    ListingCountText.Text = "Error loading listings";
                     UpdateListingProgress(null);
-                    return;
+                }
+            }
+            finally
+            {
+                if (showSkeleton)
+                {
+                    SetListingsLoadingState(false);
+                }
+            }
+        }
+
+        private async Task<bool> RefreshListingsCacheAsync(long requestId, bool showErrors)
+        {
+            await _listingsRefreshLock.WaitAsync();
+
+            try
+            {
+                var snapshot = await FetchListingsSnapshotAsync(requestId);
+                if (snapshot == null)
+                {
+                    return false;
                 }
 
-                List<ListingViewModel> listings = await WithTimeoutAsync<List<ListingViewModel>>(
-                    token => context.ProductListings
-                        .Where(l => l.RequestInfoId == request.RequestInfoId)
+                lock (_cacheLock)
+                {
+                    _cacheData.ListingsByRequestId[requestId] = snapshot;
+                }
+
+                SaveCacheToDisk();
+                MarkConnectionRestored();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (IsDatabaseConnectionIssue(ex))
+                {
+                    MarkConnectionLost();
+                }
+
+                if (showErrors)
+                {
+                    //NOTE: Nothing to do
+
+                    //ModalDialogService.Show(
+                    //    $"Error loading listings: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
+                    //    "Error",
+                    //    MessageBoxButton.OK,
+                    //    MessageBoxImage.Error);
+                }
+                else
+                {
+                    Console.WriteLine($"Error loading listings: {ex.Message}");
+                }
+
+                return false;
+            }
+            finally
+            {
+                _listingsRefreshLock.Release();
+            }
+        }
+
+        private async Task<List<CachedListing>> FetchListingsSnapshotAsync(long requestId)
+        {
+            return await WithTimeoutAsync(
+                _ => Task.Run(() =>
+                {
+                    using var context = new ProductCheckerDbContext();
+
+                    var requestInfoId = context.Requests
+                        .AsNoTracking()
+                        .Where(r => r.Id == requestId)
+                        .Select(r => r.RequestInfoId)
+                        .FirstOrDefault();
+
+                    if (requestInfoId <= 0)
+                    {
+                        return new List<CachedListing>();
+                    }
+
+                    return context.ProductListings
+                        .AsNoTracking()
+                        .Where(l => l.RequestInfoId == requestInfoId)
                         .OrderBy(l => l.Id)
-                        .Select(l => new ListingViewModel
+                        .Select(l => new CachedListing
                         {
                             ListingId = l.ListingId.ToString(),
                             CaseNumber = l.CaseNumber ?? string.Empty,
@@ -577,48 +645,28 @@ namespace ProductCheckerV2
                             CheckedDate = l.CheckedDate ?? string.Empty,
                             Notes = l.Note ?? string.Empty
                         })
-                        .ToListAsync(token),
-                    DataQueryTimeoutSeconds);
+                        .ToList();
+                }),
+                DataQueryTimeoutSeconds);
+        }
 
-                if (ShouldReplaceListingsData(listings))
-                {
-                    ListingsDataGrid.ItemsSource = listings;
-                }
-                ListingCountText.Text = $"{listings.Count} listings";
-                UpdateListingProgress(listings);
-
-                UpdateListingsCache(requestId, listings);
-                SaveCacheToDisk();
-            }
-            catch (Exception ex)
+        private bool TryLoadListingsIntoUiFromCache(long requestId, bool showCachedLabel)
+        {
+            if (!TryLoadListingsFromCache(requestId, out var listings))
             {
-                if (TryLoadListingsFromCache(requestId, out var cachedListings))
-                {
-                    if (ShouldReplaceListingsData(cachedListings))
-                    {
-                        ListingsDataGrid.ItemsSource = cachedListings;
-                    }
-                    ListingCountText.Text = $"{cachedListings.Count} listings (cached)";
-                    UpdateListingProgress(cachedListings);
-                    return;
-                }
+                return false;
+            }
 
-                if (!_isRefreshing)
-                {
-                    ModalDialogService.Show($"Error loading listings: {ex.Message}\n\nStack Trace:\n{ex.StackTrace}",
-                        "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-                ListingsDataGrid.ItemsSource = null;
-                ListingCountText.Text = "Error loading listings";
-                UpdateListingProgress(null);
-            }
-            finally
+            if (ShouldReplaceListingsData(listings))
             {
-                if (showSkeleton)
-                {
-                    SetListingsLoadingState(false);
-                }
+                ListingsDataGrid.ItemsSource = listings;
             }
+
+            ListingCountText.Text = showCachedLabel
+                ? $"{listings.Count} listings (cached)"
+                : $"{listings.Count} listings";
+            UpdateListingProgress(listings);
+            return true;
         }
 
         private string SafeGetString(DbDataReader reader, int columnIndex)
@@ -1826,52 +1874,6 @@ namespace ProductCheckerV2
             catch
             {
                 // Ignore cache write failures.
-            }
-        }
-
-        private void MergeRequestsIntoCache(IEnumerable<RequestViewModel> requests)
-        {
-            lock (_cacheLock)
-            {
-                var byId = _cacheData.Requests.ToDictionary(r => r.Id, r => r);
-
-                foreach (var vm in requests)
-                {
-                    byId[vm.Id] = new CachedRequest
-                    {
-                        Id = vm.Id,
-                        RequestInfoId = vm.RequestInfoId,
-                        User = vm.User ?? string.Empty,
-                        FileName = vm.FileName ?? string.Empty,
-                        Environment = vm.Environment ?? "Stage",
-                        Status = vm.Status.ToString(),
-                        CreatedAt = vm.CreatedAt,
-                        ListingsCount = vm.ListingsCount,
-                        Priority = vm.Priority
-                    };
-                }
-
-                _cacheData.Requests = byId.Values
-                    .OrderByDescending(r => r.Id)
-                    .Take(500)
-                    .ToList();
-            }
-        }
-
-        private void UpdateListingsCache(long requestId, List<ListingViewModel> listings)
-        {
-            lock (_cacheLock)
-            {
-                _cacheData.ListingsByRequestId[requestId] = listings.Select(l => new CachedListing
-                {
-                    ListingId = l.ListingId ?? string.Empty,
-                    CaseNumber = l.CaseNumber ?? string.Empty,
-                    Platform = l.Platform ?? string.Empty,
-                    Url = l.Url ?? string.Empty,
-                    UrlStatus = l.UrlStatus ?? string.Empty,
-                    CheckedDate = l.CheckedDate ?? string.Empty,
-                    Notes = l.Notes ?? string.Empty
-                }).ToList();
             }
         }
 
