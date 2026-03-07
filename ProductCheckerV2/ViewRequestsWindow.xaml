@@ -283,7 +283,7 @@
         <Style x:Key="ModalButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
             <Setter Property="MinWidth" Value="80"/>
             <Setter Property="Height" Value="36"/>
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="12"/>
         </Style>
 
         <!-- Priority Toggle Button -->
@@ -703,7 +703,7 @@
                                            FontSize="13"
                                            FontWeight="SemiBold"
                                            Foreground="#4361ee"/>
-                                <TextBlock Text=" | Status: "
+                                <TextBlock Text="Status: "
                                            FontSize="13"
                                            Foreground="{StaticResource TextSecondaryBrush}"
                                            Margin="10,0,0,0"/>
