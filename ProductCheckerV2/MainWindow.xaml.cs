@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using ProductCheckerV2.Common;
 using ProductCheckerV2.Database;
 using ProductCheckerV2.Database.Models;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -110,7 +111,7 @@ namespace ProductCheckerV2
             {
                 _applicationName = ConfigurationManager.ApplicationName;
                 TryApplyLogo();
-
+                TrySetInstalledAppsDisplayIcon();
                 InitializeEnvironmentSelector();
                 UpdateEnvironmentIndicator();
                 InitializeDatabase();
@@ -131,6 +132,55 @@ namespace ProductCheckerV2
 
                 // Keep app usable even when startup dependencies fail (e.g. DB/credentials).
                 TryInitializeLimitedModeUi();
+            }
+        }
+
+        private void TrySetInstalledAppsDisplayIcon()
+        {
+            try
+            {
+                var processPath = Environment.ProcessPath;
+                if (string.IsNullOrWhiteSpace(processPath) || !File.Exists(processPath))
+                {
+                    return;
+                }
+
+                using var uninstallRoot = Registry.CurrentUser.OpenSubKey(
+                    @"Software\Microsoft\Windows\CurrentVersion\Uninstall",
+                    writable: true);
+
+                if (uninstallRoot == null)
+                {
+                    return;
+                }
+
+                foreach (var subKeyName in uninstallRoot.GetSubKeyNames())
+                {
+                    using var appKey = uninstallRoot.OpenSubKey(subKeyName, writable: true);
+                    if (appKey == null)
+                    {
+                        continue;
+                    }
+
+                    var displayName = appKey.GetValue("DisplayName") as string;
+                    if (!string.Equals(displayName, _applicationName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    var desiredDisplayIcon = $"{processPath},0";
+                    var currentDisplayIcon = appKey.GetValue("DisplayIcon") as string;
+                    if (!string.Equals(currentDisplayIcon, desiredDisplayIcon, StringComparison.OrdinalIgnoreCase))
+                    {
+                        appKey.SetValue("DisplayIcon", desiredDisplayIcon, RegistryValueKind.String);
+                    }
+
+                    break;
+                }
+            }
+            catch
+            {
+                // Ignore ClickOnce uninstall metadata update failures.
             }
         }
 

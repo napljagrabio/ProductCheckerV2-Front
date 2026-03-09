@@ -10,13 +10,16 @@
     <Product>Product Checker</Product>
     <Company>Product Checker</Company>
     <ApplicationIcon>Assets\Logo.ico</ApplicationIcon>
+
     <DefaultItemExcludes>$(DefaultItemExcludes);artifacts\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
+
     <None Remove="Database\Models\Requests.cs~RF8953ee75.TMP" />
-    <None Remove="Assets\Product-Checker.ico" />
+
   </ItemGroup>
+
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.105.0" />
@@ -37,15 +40,27 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Assets\Logo2.ico">
+
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+
     </None>
+
+    <None Update="Assets\Product-Checker.ico">
+
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+
+    </None>
+
     <None Update="Assets\Looping_Animation_Video.mp4">
+
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+
     </None>
+
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\Logo.ico" />
+    <Resource Include="Assets\Product-Checker.ico" />
   </ItemGroup>
 
 </Project>
