@@ -59,6 +59,7 @@ namespace ProductCheckerV2
         private bool _suppressNextListingSkeleton = false;
         private bool _suppressNextListingReload = false;
         private bool _isRestoringRequestSelection = false;
+        private bool _isConnectionAvailable = true;
 
         public ViewRequestsPage()
         {
@@ -171,7 +172,9 @@ namespace ProductCheckerV2
             try
             {
                 loadedFromCache = TryLoadRequestsFromCache(preserveSelection);
-                var refreshSucceeded = await RefreshRequestsCacheAsync(showErrors);
+                var refreshSucceeded = _isConnectionAvailable
+                    ? await RefreshRequestsCacheAsync(showErrors)
+                    : false;
 
                 if (refreshSucceeded)
                 {
@@ -339,11 +342,13 @@ namespace ProductCheckerV2
 
         private void MarkConnectionLost()
         {
+            _isConnectionAvailable = false;
             ModalDialogService.ShowConnectionLostBanner(Window.GetWindow(this));
         }
 
         private void MarkConnectionRestored()
         {
+            _isConnectionAvailable = true;
             ModalDialogService.ShowConnectionRestoredBanner(Window.GetWindow(this));
         }
 
@@ -540,7 +545,9 @@ namespace ProductCheckerV2
             try
             {
                 loadedFromCache = TryLoadListingsIntoUiFromCache(requestId, showCachedLabel: true);
-                var refreshed = await RefreshListingsCacheAsync(requestId, showErrors: !_isRefreshing);
+                var refreshed = _isConnectionAvailable
+                    ? await RefreshListingsCacheAsync(requestId, showErrors: !_isRefreshing)
+                    : false;
 
                 if (refreshed)
                 {
@@ -1150,6 +1157,12 @@ namespace ProductCheckerV2
         private async void SearchDebounceTimer_Tick(object sender, EventArgs e)
         {
             _searchDebounceTimer.Stop();
+            if (!_isConnectionAvailable)
+            {
+                TryLoadRequestsFromCache(preserveSelection: false);
+                return;
+            }
+
             await LoadRequestsPageAsync(preserveSelection: false, showErrors: false);
         }
 
@@ -1880,9 +1893,14 @@ namespace ProductCheckerV2
         private bool TryLoadRequestsFromCache(bool preserveSelection)
         {
             List<CachedRequest> cached;
+            Dictionary<long, List<CachedListing>> cachedListingsByRequestId;
             lock (_cacheLock)
             {
                 cached = _cacheData.Requests.ToList();
+                cachedListingsByRequestId = _cacheData.ListingsByRequestId
+                    .ToDictionary(
+                        kvp => kvp.Key,
+                        kvp => kvp.Value.ToList());
             }
 
             if (cached.Count == 0)
@@ -1892,19 +1910,30 @@ namespace ProductCheckerV2
 
             var search = SearchTextBox?.Text?.Trim() ?? string.Empty;
             var filtered = cached
-                .Where(r => CachedRequestMatchesSearch(r, search))
-                .OrderByDescending(r => r.Id)
+                .Select(r =>
+                {
+                    var requestMatches = CachedRequestMatchesSearch(r, search);
+                    var listingMatchCount = GetCachedListingMatchCount(r.Id, search, cachedListingsByRequestId);
+                    return new
+                    {
+                        Request = r,
+                        ListingMatchCount = listingMatchCount,
+                        Matches = requestMatches || listingMatchCount > 0
+                    };
+                })
+                .Where(x => x.Matches)
+                .OrderByDescending(x => x.Request.Id)
                 .ToList();
 
             _totalRequests = filtered.Count;
-            _pendingRequests = filtered.Count(r => string.Equals(r.Status, RequestStatus.PENDING.ToString(), StringComparison.OrdinalIgnoreCase));
+            _pendingRequests = filtered.Count(r => string.Equals(r.Request.Status, RequestStatus.PENDING.ToString(), StringComparison.OrdinalIgnoreCase));
             _totalPages = Math.Max(1, (int)Math.Ceiling((double)Math.Max(1, _totalRequests) / PageSize));
             _currentPage = Math.Max(1, Math.Min(_currentPage, _totalPages));
 
             var page = filtered
                 .Skip((_currentPage - 1) * PageSize)
                 .Take(PageSize)
-                .Select(ToRequestViewModel)
+                .Select(x => ToRequestViewModel(x.Request, x.ListingMatchCount))
                 .ToList();
 
             _allRequests = page;
@@ -1961,7 +1990,33 @@ namespace ProductCheckerV2
                    (request.Status ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase);
         }
 
-        private RequestViewModel ToRequestViewModel(CachedRequest cached)
+        private static int GetCachedListingMatchCount(
+            long requestId,
+            string searchText,
+            IReadOnlyDictionary<long, List<CachedListing>> cachedListingsByRequestId)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                return 0;
+            }
+
+            if (!cachedListingsByRequestId.TryGetValue(requestId, out var listings) || listings == null || listings.Count == 0)
+            {
+                return 0;
+            }
+
+            var search = searchText.Trim();
+            return listings.Count(l =>
+                (l.ListingId ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (l.CaseNumber ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (l.Platform ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (l.Url ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (l.UrlStatus ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (l.CheckedDate ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase) ||
+                (l.Notes ?? string.Empty).Contains(search, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private RequestViewModel ToRequestViewModel(CachedRequest cached, int listingMatchCount)
         {
             var status = Enum.TryParse<RequestStatus>(cached.Status, true, out var parsedStatus)
                 ? parsedStatus
@@ -1979,8 +2034,8 @@ namespace ProductCheckerV2
                 ListingsCount = cached.ListingsCount,
                 Priority = cached.Priority,
                 IsHighPriority = cached.Priority == 1,
-                MatchCount = 0,
-                HasListingMatch = false,
+                MatchCount = listingMatchCount,
+                HasListingMatch = listingMatchCount > 0,
                 StatusBrush = GetStatusBrush(status),
                 EnvironmentBrush = GetEnvironmentBrush(cached.Environment)
             };

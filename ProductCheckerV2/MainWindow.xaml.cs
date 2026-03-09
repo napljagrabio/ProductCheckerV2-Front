@@ -61,8 +61,8 @@ namespace ProductCheckerV2
             try
             {
                 _applicationName = ConfigurationManager.ApplicationName;
-                this.Icon = new BitmapImage(new Uri("Assets/Logo.ico".AbsPath()));
-                LogoImage.Source = new BitmapImage(new Uri("Assets/Logo.ico".AbsPath()));
+                this.Icon = new BitmapImage(new Uri("Assets/TestLogos.png".AbsPath()));
+                LogoImage.Source = new BitmapImage(new Uri("Assets/TestLogos.png".AbsPath()));
 
                 InitializeEnvironmentSelector();
                 UpdateEnvironmentIndicator();

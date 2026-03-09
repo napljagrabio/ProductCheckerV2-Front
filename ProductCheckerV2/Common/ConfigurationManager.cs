@@ -11,8 +11,11 @@ namespace ProductCheckerV2.Common
     {
         private const string StageEnvironment = "Stage";
         private const string LiveEnvironment = "Live";
+        private const string PreferencesFileName = "user-preferences.json";
+        private const string PreferencesEnvironmentKey = "Environment";
 
         private static string _overriddenEnvironment;
+        private static readonly Lazy<string> StartupEnvironment = new(ResolveStartupEnvironment);
 
         private static readonly Lazy<IConfigurationRoot> Configuration = new(() =>
             new ConfigurationBuilder()
@@ -24,7 +27,7 @@ namespace ProductCheckerV2.Common
             NormalizeEnvironment(Configuration.Value["AppSettings:Environment"] ?? StageEnvironment);
 
         private static string EffectiveEnvironment =>
-            _overriddenEnvironment ?? ConfiguredEnvironment;
+            _overriddenEnvironment ?? StartupEnvironment.Value;
 
         public static string ApplicationName =>
             Configuration.Value["AppSettings:ApplicationName"] ?? "Product Checker";
@@ -93,6 +96,8 @@ namespace ProductCheckerV2.Common
         {
             try
             {
+                PersistEnvironmentInUserPreferences(environment);
+
                 var runtimeConfigPath = Path.Combine(AppContext.BaseDirectory, "appSettings.json");
                 UpdateEnvironmentInJsonFile(runtimeConfigPath, environment);
 
@@ -107,6 +112,17 @@ namespace ProductCheckerV2.Common
             {
                 // Environment switching should still work even if persistence fails.
             }
+        }
+
+        private static string ResolveStartupEnvironment()
+        {
+            var cachedEnvironment = ReadEnvironmentFromUserPreferences();
+            if (!string.IsNullOrWhiteSpace(cachedEnvironment))
+            {
+                return cachedEnvironment;
+            }
+
+            return ConfiguredEnvironment;
         }
 
         private static string GetConnectionStringForEnvironment(string environment, string connectionStringName)
@@ -190,6 +206,80 @@ namespace ProductCheckerV2.Common
             };
 
             File.WriteAllText(path, rootNode.ToJsonString(options));
+        }
+
+        private static string ReadEnvironmentFromUserPreferences()
+        {
+            try
+            {
+                var preferencesPath = GetUserPreferencesPath();
+                if (!File.Exists(preferencesPath))
+                {
+                    return string.Empty;
+                }
+
+                var jsonText = File.ReadAllText(preferencesPath);
+                var rootNode = JsonNode.Parse(jsonText) as JsonObject;
+                if (rootNode == null)
+                {
+                    return string.Empty;
+                }
+
+                var environment = rootNode[PreferencesEnvironmentKey]?.GetValue<string>();
+                return IsSupportedEnvironment(NormalizeEnvironment(environment))
+                    ? NormalizeEnvironment(environment)
+                    : string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        private static void PersistEnvironmentInUserPreferences(string environment)
+        {
+            try
+            {
+                var preferencesPath = GetUserPreferencesPath();
+                var preferencesDirectory = Path.GetDirectoryName(preferencesPath);
+                if (!string.IsNullOrWhiteSpace(preferencesDirectory))
+                {
+                    Directory.CreateDirectory(preferencesDirectory);
+                }
+
+                JsonObject rootNode;
+                if (File.Exists(preferencesPath))
+                {
+                    var existingText = File.ReadAllText(preferencesPath);
+                    rootNode = JsonNode.Parse(existingText) as JsonObject ?? new JsonObject();
+                }
+                else
+                {
+                    rootNode = new JsonObject();
+                }
+
+                rootNode[PreferencesEnvironmentKey] = environment;
+
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                };
+
+                File.WriteAllText(preferencesPath, rootNode.ToJsonString(options));
+            }
+            catch
+            {
+                // Environment switching should still work even if preference persistence fails.
+            }
+        }
+
+        private static string GetUserPreferencesPath()
+        {
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ProductCheckerV2",
+                "cache",
+                PreferencesFileName);
         }
     }
 }
