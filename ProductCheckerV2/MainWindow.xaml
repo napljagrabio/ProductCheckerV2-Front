@@ -12,6 +12,7 @@
         MinWidth="1250"
         WindowStartupLocation="CenterScreen"
         Background="#F8FAFC"
+        Icon="pack://application:,,,/Assets/Logo.ico"
         WindowStyle="SingleBorderWindow"
         ResizeMode="CanResizeWithGrip"
         PreviewMouseDown="MainWindow_PreviewMouseDown">
@@ -460,6 +461,7 @@
 
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <Image x:Name="LogoImage"
+                           Source="pack://application:,,,/Assets/Logo.ico"
                            Height="36"
                            Width="36"
                            Margin="0,0,12,0"/>
@@ -1537,7 +1539,7 @@
                                         VerticalAlignment="Stretch"
                                         Padding="40">
                                         <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
-                                            <Image Source="pack://application:,,,/Assets/Product-Checker.ico"
+                                            <Image Source="pack://application:,,,/Assets/Logo.ico"
                                                    Opacity="0.18"
                                                    Stretch="Uniform"
                                                    HorizontalAlignment="Center"

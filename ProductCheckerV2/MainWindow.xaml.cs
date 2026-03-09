@@ -109,8 +109,7 @@ namespace ProductCheckerV2
             try
             {
                 _applicationName = ConfigurationManager.ApplicationName;
-                this.Icon = new BitmapImage(new Uri("Assets/TestLogos.png".AbsPath()));
-                LogoImage.Source = new BitmapImage(new Uri("Assets/TestLogos.png".AbsPath()));
+                TryApplyLogo();
 
                 InitializeEnvironmentSelector();
                 UpdateEnvironmentIndicator();
@@ -132,6 +131,31 @@ namespace ProductCheckerV2
 
                 // Keep app usable even when startup dependencies fail (e.g. DB/credentials).
                 TryInitializeLimitedModeUi();
+            }
+        }
+
+        private void TryApplyLogo()
+        {
+            const string logoPackUri = "pack://application:,,,/Assets/Logo.ico";
+            try
+            {
+                var logo = new BitmapImage(new Uri(logoPackUri, UriKind.Absolute));
+                this.Icon = logo;
+                LogoImage.Source = logo;
+            }
+            catch
+            {
+                // Fallback to file-based URI for local/debug scenarios.
+                try
+                {
+                    var logo = new BitmapImage(new Uri("Assets/Logo.ico".AbsPath()));
+                    this.Icon = logo;
+                    LogoImage.Source = logo;
+                }
+                catch
+                {
+                    // Keep startup alive even if icon loading fails.
+                }
             }
         }
 
