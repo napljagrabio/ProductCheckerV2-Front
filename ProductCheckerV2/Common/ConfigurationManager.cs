@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -53,26 +53,6 @@ namespace ProductCheckerV2.Common
         public static string GetConnectionString(string connectionStringName)
         {
             return GetConnectionStringForEnvironment(EffectiveEnvironment, connectionStringName);
-        }
-
-        public static string GetArtemisApiBaseUrl()
-        {
-            return Configuration.Value[$"{EffectiveEnvironment}:ARTEMIS:BaseUrl"]
-                ?? "http://localhost:8000/";
-        }
-
-        public static string GetArtemisLoginUsername()
-        {
-            return Configuration.Value[$"{EffectiveEnvironment}:ARTEMIS:Username"]
-                ?? Configuration.Value["ARTEMIS:Username"]
-                ?? string.Empty;
-        }
-
-        public static string GetArtemisLoginPassword()
-        {
-            return Configuration.Value[$"{EffectiveEnvironment}:ARTEMIS:Password"]
-                ?? Configuration.Value["ARTEMIS:Password"]
-                ?? string.Empty;
         }
 
         public static void SetEnvironment(string environment)
