@@ -35,6 +35,9 @@
     <None Update="Assets\TestLogos.png">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Assets\Looping_Animation_Video.mp4">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

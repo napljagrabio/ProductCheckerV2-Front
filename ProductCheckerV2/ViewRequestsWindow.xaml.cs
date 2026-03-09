@@ -27,7 +27,7 @@ namespace ProductCheckerV2
 {
     public partial class ViewRequestsPage : Page
     {
-        private const int PageSize = 10;
+        private int _pageSize = 10;
         private List<RequestViewModel> _allRequests = new List<RequestViewModel>();
         private ICollectionView _requestsView;
         private RequestViewModel _selectedRequest;
@@ -431,8 +431,8 @@ namespace ProductCheckerV2
                 }
                 else
                 {
-                    int start = ((_currentPage - 1) * PageSize) + 1;
-                    int end = Math.Min(_currentPage * PageSize, _totalRequests);
+                    int start = ((_currentPage - 1) * _pageSize) + 1;
+                    int end = Math.Min(_currentPage * _pageSize, _totalRequests);
                     PageRangeText.Text = $"{start}-{end} of {_totalRequests}";
                 }
             }
@@ -1191,6 +1191,28 @@ namespace ProductCheckerV2
             await GoToPageFromInputAsync();
         }
 
+        private async void PageSizeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!IsLoaded || PageSizeComboBox?.SelectedItem is not ComboBoxItem selectedItem)
+            {
+                return;
+            }
+
+            if (!int.TryParse(selectedItem.Tag?.ToString(), out int selectedPageSize) || selectedPageSize <= 0)
+            {
+                return;
+            }
+
+            if (selectedPageSize == _pageSize)
+            {
+                return;
+            }
+
+            _pageSize = selectedPageSize;
+            _currentPage = 1;
+            await LoadRequestsPageAsync(preserveSelection: false, showErrors: false, showSkeleton: false);
+        }
+
         private void PageJumpTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
             e.Handled = e.Text.Any(c => !char.IsDigit(c));
@@ -1927,12 +1949,12 @@ namespace ProductCheckerV2
 
             _totalRequests = filtered.Count;
             _pendingRequests = filtered.Count(r => string.Equals(r.Request.Status, RequestStatus.PENDING.ToString(), StringComparison.OrdinalIgnoreCase));
-            _totalPages = Math.Max(1, (int)Math.Ceiling((double)Math.Max(1, _totalRequests) / PageSize));
+            _totalPages = Math.Max(1, (int)Math.Ceiling((double)Math.Max(1, _totalRequests) / _pageSize));
             _currentPage = Math.Max(1, Math.Min(_currentPage, _totalPages));
 
             var page = filtered
-                .Skip((_currentPage - 1) * PageSize)
-                .Take(PageSize)
+                .Skip((_currentPage - 1) * _pageSize)
+                .Take(_pageSize)
                 .Select(x => ToRequestViewModel(x.Request, x.ListingMatchCount))
                 .ToList();
 

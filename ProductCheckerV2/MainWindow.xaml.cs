@@ -47,6 +47,7 @@ namespace ProductCheckerV2
         private string _customFileName = string.Empty;
         private bool _isEnvironmentSelectorInitialized = false;
         private string _pendingEnvironment = string.Empty;
+        private bool _isStartupVideoCompleted = false;
 
         public MainWindow()
         {
@@ -54,6 +55,55 @@ namespace ProductCheckerV2
             InitializeApp();
             SetupBackgroundWorker();
             SetupDragDrop();
+            Loaded += MainWindow_Loaded;
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                StartupVideoElement.Source = new Uri("Assets/Looping_Animation_Video.mp4".AbsPath());
+                StartupVideoElement.Position = TimeSpan.Zero;
+                StartupVideoElement.Play();
+            }
+            catch
+            {
+                CompleteStartupVideo();
+            }
+        }
+
+        private void StartupVideoElement_MediaEnded(object sender, RoutedEventArgs e)
+        {
+            CompleteStartupVideo();
+        }
+
+        private void StartupVideoElement_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+        {
+            CompleteStartupVideo();
+        }
+
+        private void CompleteStartupVideo()
+        {
+            if (_isStartupVideoCompleted)
+            {
+                return;
+            }
+
+            _isStartupVideoCompleted = true;
+
+            try
+            {
+                StartupVideoElement.Stop();
+            }
+            catch
+            {
+                // Ignore media stop failures in startup transition.
+            }
+
+            StartupVideoOverlay.Visibility = Visibility.Collapsed;
+
+            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250));
+            MainAppContent.BeginAnimation(UIElement.OpacityProperty, fadeIn);
         }
 
         private void InitializeApp()
@@ -331,7 +381,7 @@ namespace ProductCheckerV2
                     .Select(q => new FilterOption
                     {
                         Id = q.Id,
-                        Display = string.IsNullOrWhiteSpace(q.Label) ? $"QFlag #{q.Id}" : q.Label
+                        Display = string.IsNullOrWhiteSpace(q.Label) ? $"Status #{q.Id}" : q.Label
                     })
                     .ToList();
 

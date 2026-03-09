@@ -439,6 +439,7 @@
     </Window.Resources>
 
     <Grid>
+        <Grid x:Name="MainAppContent" Opacity="0">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -1684,6 +1685,23 @@
             <Frame x:Name="MainContentFrame"
                    NavigationUIVisibility="Hidden"
                    Visibility="Collapsed"/>
+        </Grid>
+        </Grid>
+
+        <Grid x:Name="StartupVideoOverlay"
+              Panel.ZIndex="5000"
+              Background="Black">
+            <MediaElement x:Name="StartupVideoElement"
+                          Stretch="UniformToFill"
+                          RenderTransformOrigin="0.5,0.5"
+                          LoadedBehavior="Manual"
+                          UnloadedBehavior="Stop"
+                          MediaEnded="StartupVideoElement_MediaEnded"
+                          MediaFailed="StartupVideoElement_MediaFailed">
+                <MediaElement.RenderTransform>
+                    <ScaleTransform ScaleX="1.25" ScaleY="1.25"/>
+                </MediaElement.RenderTransform>
+            </MediaElement>
         </Grid>
     </Grid>
 </Window>
