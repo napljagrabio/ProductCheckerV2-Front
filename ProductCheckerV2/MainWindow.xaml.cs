@@ -1,6 +1,5 @@
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
-using ProductCheckerV2.Artemis;
 using ProductCheckerV2.Common;
 using ProductCheckerV2.Database;
 using ProductCheckerV2.Database.Models;
@@ -11,7 +10,6 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -1051,7 +1049,7 @@ namespace ProductCheckerV2
                 if (validationErrors.Count > 0)
                 {
                     HideValidationOverlay();
-                    ModalDialogService.Show("Validation failed:\n\n" + string.Join("\n", validationErrors),
+                    ModalDialogService.Show("" + string.Join("\n", validationErrors),
                         "Validation Errors", MessageBoxButton.OK, MessageBoxImage.Warning);
 
                     ClearAllData();
@@ -1205,38 +1203,39 @@ namespace ProductCheckerV2
             {
                 try
                 {
-                    var response = await ArtemisGlobalClient.Instance.ValidateListingsApi
-                        .Execute(ids)
-                        .ConfigureAwait(false);
-                    NotifyConnectionRestored();
-                    var responseBody = await response.Content.ReadAsStringAsync()
-                        .ConfigureAwait(false);
+                    var validListingIds = ids
+                        .Select(id => long.TryParse(id, out var parsedId) && parsedId > 0 ? (long?)parsedId : null)
+                        .Where(id => id.HasValue)
+                        .Select(id => id.GetValueOrDefault())
+                        .Distinct()
+                        .ToArray();
 
-                    using JsonDocument doc = JsonDocument.Parse(responseBody);
-                    JsonElement root = doc.RootElement;
-
-                    if (root.TryGetProperty("error", out JsonElement errorElement))
+                    if (validListingIds.Length > 0)
                     {
-                        string errorMessage = errorElement.GetString() ?? "Validation error";
-                        if (root.TryGetProperty("missing_ids", out JsonElement missingIdsElement))
-                        {
-                            var missingIds = missingIdsElement.EnumerateArray()
-                                .Select(id => id.ToString())
-                                .ToList();
+                        using var context = new ArtemisDbContext();
+                        var existingIds = await context.Listings
+                            .AsNoTracking()
+                            .Where(listing => listing.DeletedAt == null && validListingIds.Contains(listing.Id))
+                            .Select(listing => listing.Id)
+                            .Distinct()
+                            .ToListAsync()
+                            .ConfigureAwait(false);
 
-                            errors.Add(errorMessage);
+                        var missingIds = validListingIds
+                            .Except(existingIds)
+                            .OrderBy(id => id)
+                            .Select(id => id.ToString())
+                            .ToList();
+
+                        if (missingIds.Count > 0)
+                        {
+                            errors.Add($"Missing database records: {missingIds.Count} listing(s) not found\n");
                             errors.AddRange(missingIds);
                             return errors;
                         }
-                        errors.Add(errorMessage);
-                        return errors;
                     }
-                }
-                catch (HttpRequestException ex)
-                {
-                    NotifyConnectionLostIfNeeded(ex);
-                    errors.Add($"Validating Listings Error, Please contact system admin.");
-                    return errors;
+
+                    NotifyConnectionRestored();
                 }
                 catch (Exception ex)
                 {
