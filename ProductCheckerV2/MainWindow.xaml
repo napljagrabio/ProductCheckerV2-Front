@@ -9,7 +9,7 @@
         Height="810" 
         Width="1400"
         MinHeight="700"
-        MinWidth="1250"
+        MinWidth="1330"
         WindowStartupLocation="CenterScreen"
         Background="#F8FAFC"
         WindowStyle="SingleBorderWindow"
